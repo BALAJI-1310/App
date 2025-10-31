@@ -6,14 +6,14 @@ from azure.identity import DefaultAzureCredential
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(_name_)
 
 # --- Flask Setup ---
-app = Flask(__name__)
+app = Flask(_name_)
 app.secret_key = os.urandom(24)
 
 # --- Configuration ---
-AGENT_ENDPOINT = "https://foundygaaj.services.ai.azure.com/agents/<your-agent-id>/chat/completions"
+AGENT_ENDPOINT = "https://<your-resource>.services.ai.azure.com/agents/<your-agent-id>/chat/completions"
 
 if not AGENT_ENDPOINT:
     logger.error("AGENT_ENDPOINT is not set. Please update the value in the script.")
@@ -169,10 +169,10 @@ def ask():
 
         # Acquire token for AI Foundry
         credential = DefaultAzureCredential()
-        token = credential.get_token("https://ai.azure.com/.default").token
+        access_token = credential.get_token("https://ai.azure.com/.default")
 
         headers = {
-            "Authorization": f"Bearer {token}",
+            "Authorization": f"Bearer {access_token.token}",
             "Content-Type": "application/json"
         }
 
@@ -183,9 +183,15 @@ def ask():
         }
 
         response = requests.post(AGENT_ENDPOINT, headers=headers, json=payload)
-        response.raise_for_status()
-        result = response.json()
 
+        # Check for valid JSON response
+        if "application/json" not in response.headers.get("Content-Type", ""):
+            logger.error("Non-JSON response received: %s", response.text)
+            chat.append({"role": "agent", "text": "Error: Unexpected response format from agent."})
+            session["chat"] = chat
+            return jsonify({"answer": "Error: Unexpected response format from agent."})
+
+        result = response.json()
         answer = result["choices"][0]["message"]["content"]
         chat.append({"role": "agent", "text": answer})
         session["chat"] = chat
