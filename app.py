@@ -200,7 +200,7 @@ def ask():
         ]
 
         response = client.complete(
-            deployment_id=MODEL_DEPLOYMENT_NAME,
+            model=MODEL_DEPLOYMENT_NAME,
             messages=messages,
             temperature=0.7,
             max_tokens=500
