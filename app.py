@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
 """
-Azure AI Foundry Flask Chat Interface (Clean UI + Managed Identity + Session-Based Chat + Web UI)
+Azure AI Foundry Flask Chat Interface
+(Clean UI + Managed Identity + Session-Based Chat + Web UI)
 """
 
 import os
@@ -8,7 +8,7 @@ import logging
 from flask import Flask, render_template_string, request, session, jsonify, redirect, url_for
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, UserMessage
-from azure.identity import DefaultAzureCredential
+from azure.identity import DefaultAzureCredential, TokenCredential
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
@@ -18,26 +18,40 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# --- Configuration (hardcoded values or Azure App Settings) ---
-PROJECT_ENDPOINT = "https://<your-project-name>.services.ai.azure.com"
+# --- Configuration (Set your inference models endpoint here) ---
+# This must be the models endpoint (inference), NOT the project management endpoint
+INFERENCE_ENDPOINT = "https://<your-resource>.services.ai.azure.com/models"
 MODEL_DEPLOYMENT_NAME = "<your-model-deployment-name>"
 
-if not PROJECT_ENDPOINT or not MODEL_DEPLOYMENT_NAME:
-    logger.warning("PROJECT_ENDPOINT or MODEL_DEPLOYMENT_NAME not set. Please update them in the code or Azure App Settings.")
+if not INFERENCE_ENDPOINT or not MODEL_DEPLOYMENT_NAME:
+    logger.error("INFERENCE_ENDPOINT or MODEL_DEPLOYMENT_NAME is not set. Please update the values in the script.")
 else:
-    logger.info(f"Using PROJECT_ENDPOINT: {PROJECT_ENDPOINT}")
+    logger.info(f"Using INFERENCE_ENDPOINT: {INFERENCE_ENDPOINT}")
     logger.info(f"Using MODEL_DEPLOYMENT_NAME: {MODEL_DEPLOYMENT_NAME}")
 
 # --- Global Azure AI Client ---
 client = None
 
+class ScopedDefaultAzureCredential(TokenCredential):
+    """
+    Wrap DefaultAzureCredential to request token with Cognitive Services scope
+    """
+    def __init__(self):
+        self._credential = DefaultAzureCredential()
+        self._scope = "https://cognitiveservices.azure.com/.default"
+
+    def get_token(self, *scopes, **kwargs):
+        # Ignore scopes passed, always use Cognitive Services scope
+        return self._credential.get_token(self._scope, **kwargs)
+
 def init_ai_client():
+    """Initialize the Azure AI Foundry client with Managed Identity and correct token scope"""
     global client
     try:
-        logger.info("Initializing Azure AI Foundry ChatCompletionsClient...")
-        credential = DefaultAzureCredential()
-        client = ChatCompletionsClient(PROJECT_ENDPOINT, credential)
-        logger.info("Client initialized successfully using Managed Identity.")
+        logger.info("Initializing Azure AI Foundry ChatCompletionsClient with Cognitive Services token scope...")
+        credential = ScopedDefaultAzureCredential()
+        client = ChatCompletionsClient(INFERENCE_ENDPOINT, credential)
+        logger.info("Client initialized successfully using Managed Identity and Cognitive Services scope.")
     except Exception as e:
         logger.error(f"Failed to initialize Azure AI Client: {e}")
         client = None
@@ -178,6 +192,7 @@ def index():
         session["chat"] = []
     return render_template_string(HTML, chat=session.get("chat", []))
 
+
 @app.route("/ask", methods=["POST"])
 def ask():
     if client is None:
@@ -194,6 +209,7 @@ def ask():
 
     try:
         logger.info("Sending question to Azure AI Foundry...")
+
         messages = [
             SystemMessage(content="You are a helpful assistant."),
             UserMessage(content=question)
@@ -217,7 +233,9 @@ def ask():
         session["chat"] = chat
         return jsonify({"answer": error_msg})
 
+
 @app.route("/clear", methods=["POST"])
 def clear_chat():
     session.pop("chat", None)
     return redirect(url_for("index"))
+
