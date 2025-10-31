@@ -6,10 +6,10 @@ from azure.identity import DefaultAzureCredential
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(_name_)
+logger = logging.getLogger(__name__)
 
 # --- Flask Setup ---
-app = Flask(_name_)
+app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # --- Configuration ---
@@ -81,65 +81,79 @@ const chatBox = document.getElementById('chatBox');
 const chatForm = document.getElementById('chatForm');
 const sendBtn = document.getElementById('sendBtn');
 const textarea = chatForm.querySelector('textarea');
+
 function scrollToBottom() { chatBox.scrollTop = chatBox.scrollHeight; }
 scrollToBottom();
+
 chatForm.addEventListener('submit', function(event) {
-event.preventDefault();
-const question = textarea.value.trim();
-if (!question) return;
-sendBtn.disabled = true;
-const userMsgDiv = document.createElement('div');
-userMsgDiv.className = 'message user';
-userMsgDiv.innerHTML = <div class="bubble">${escapeHtml(question)}</div>;
-chatBox.appendChild(userMsgDiv);
-scrollToBottom();
-const typingDiv = document.createElement('div');
-typingDiv.className = 'message agent typing-message';
-typingDiv.innerHTML = '<div class="bubble typing" id="typingBubble">.</div>';
-chatBox.appendChild(typingDiv);
-scrollToBottom();
-let dotCount = 1;
-const typingInterval = setInterval(() => {
-dotCount = (dotCount % 3) + 1;
-document.getElementById('typingBubble').textContent = '.'.repeat(dotCount);
-}, 500);
-fetch('{{ url_for("ask") }}', {
-method: 'POST',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify({ question: question })
-})
-.then(response => response.json())
-.then(data => {
-clearInterval(typingInterval);
-chatBox.removeChild(typingDiv);
-const agentMsgDiv = document.createElement('div');
-agentMsgDiv.className = 'message agent';
-agentMsgDiv.innerHTML = <div class="bubble">${escapeHtml(data.answer)}</div>;
-chatBox.appendChild(agentMsgDiv);
-scrollToBottom();
-sendBtn.disabled = false;
-textarea.value = '';
-textarea.style.height = 'auto';
-textarea.focus();
-})
-.catch(error => {
-clearInterval(typingInterval);
-chatBox.removeChild(typingDiv);
-const errorDiv = document.createElement('div');
-errorDiv.className = 'message agent';
-errorDiv.innerHTML = <div class="bubble">Error: Unable to get response from the server.</div>;
-chatBox.appendChild(errorDiv);
-scrollToBottom();
-sendBtn.disabled = false;
+    event.preventDefault();
+    const question = textarea.value.trim();
+    if (!question) return;
+    sendBtn.disabled = true;
+
+    const userMsgDiv = document.createElement('div');
+    userMsgDiv.className = 'message user';
+    userMsgDiv.innerHTML = `<div class="bubble">${escapeHtml(question)}</div>`;
+    chatBox.appendChild(userMsgDiv);
+    scrollToBottom();
+
+    const typingDiv = document.createElement('div');
+    typingDiv.className = 'message agent typing-message';
+    typingDiv.innerHTML = '<div class="bubble typing" id="typingBubble">.</div>';
+    chatBox.appendChild(typingDiv);
+    scrollToBottom();
+
+    let dotCount = 1;
+    const typingInterval = setInterval(() => {
+        dotCount = (dotCount % 3) + 1;
+        document.getElementById('typingBubble').textContent = '.'.repeat(dotCount);
+    }, 500);
+
+    fetch('{{ url_for("ask") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: question })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Response from AI Foundry agent:", data); // 👈 Logs full JSON response
+
+        clearInterval(typingInterval);
+        chatBox.removeChild(typingDiv);
+
+        const agentMsgDiv = document.createElement('div');
+        agentMsgDiv.className = 'message agent';
+        agentMsgDiv.innerHTML = `<div class="bubble">${escapeHtml(data.answer)}</div>`;
+        chatBox.appendChild(agentMsgDiv);
+
+        scrollToBottom();
+        sendBtn.disabled = false;
+        textarea.value = '';
+        textarea.style.height = 'auto';
+        textarea.focus();
+    })
+    .catch(error => {
+        console.error("Error calling backend:", error); // 👈 Log errors too
+        clearInterval(typingInterval);
+        chatBox.removeChild(typingDiv);
+
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'message agent';
+        errorDiv.innerHTML = `<div class="bubble">Error: Unable to get response from the server.</div>`;
+        chatBox.appendChild(errorDiv);
+        scrollToBottom();
+        sendBtn.disabled = false;
+    });
 });
-});
+
 textarea.addEventListener('input', function () {
-this.style.height = 'auto';
-this.style.height = (this.scrollHeight) + 'px';
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
 });
+
 function escapeHtml(text) {
-const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 </script>
 </body>
@@ -167,7 +181,6 @@ def ask():
     try:
         logger.info("Sending question to Azure AI Foundry agent...")
 
-        # Acquire token for AI Foundry
         credential = DefaultAzureCredential()
         access_token = credential.get_token("https://ai.azure.com/.default")
 
@@ -183,8 +196,8 @@ def ask():
         }
 
         response = requests.post(AGENT_ENDPOINT, headers=headers, json=payload)
+        logger.info(f"Agent response status: {response.status_code}")
 
-        # Check for valid JSON response
         if "application/json" not in response.headers.get("Content-Type", ""):
             logger.error("Non-JSON response received: %s", response.text)
             chat.append({"role": "agent", "text": "Error: Unexpected response format from agent."})
@@ -192,6 +205,8 @@ def ask():
             return jsonify({"answer": "Error: Unexpected response format from agent."})
 
         result = response.json()
+        logger.info(f"Response JSON: {result}")
+
         answer = result["choices"][0]["message"]["content"]
         chat.append({"role": "agent", "text": answer})
         session["chat"] = chat
