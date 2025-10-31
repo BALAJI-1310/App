@@ -31,24 +31,16 @@ else:
 # --- Global Azure AI Client ---
 client = None
 
-class ScopedDefaultAzureCredential:
-    """
-    Wrap DefaultAzureCredential to request token with Cognitive Services scope
-    """
-    def __init__(self):
-        self._credential = DefaultAzureCredential()
-        self._scope = "https://cognitiveservices.azure.com/.default"
-
-    def get_token(self, *args, **kwargs):
-        return self._credential.get_token(self._scope, **kwargs)
-
 def init_ai_client():
     """Initialize the Azure AI Foundry client with Managed Identity and correct token scope"""
     global client
     try:
-        logger.info("Initializing Azure AI Foundry ChatCompletionsClient with Cognitive Services token scope...")
-        credential = ScopedDefaultAzureCredential()
-        client = ChatCompletionsClient(INFERENCE_ENDPOINT, credential)
+        logger.info("Initializing Azure AI Foundry ChatCompletionsClient with DefaultAzureCredential and Cognitive Services scope...")
+        client = ChatCompletionsClient(
+            endpoint=INFERENCE_ENDPOINT,
+            credential=DefaultAzureCredential(),
+            credential_scopes=["https://cognitiveservices.azure.com/.default"],
+        )
         logger.info("Client initialized successfully using Managed Identity and Cognitive Services scope.")
     except Exception as e:
         logger.error(f"Failed to initialize Azure AI Client: {e}")
