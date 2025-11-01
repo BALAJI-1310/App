@@ -2,6 +2,7 @@ import logging
 from flask import Flask, request, session, jsonify, redirect, url_for, render_template_string
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
+from azure.ai.agents.models import ListSortOrder
 
 # --- Flask Setup ---
 app = Flask(__name__)
@@ -21,9 +22,9 @@ try:
         endpoint=ENDPOINT,
         credential=DefaultAzureCredential()
     )
-    logger.info("✅ Connected to Azure AI Project successfully.")
+    logger.info(" Connected to Azure AI Project successfully.")
 except Exception as e:
-    logger.error(f"❌ Failed to initialize AIProjectClient: {e}")
+    logger.error(f" Failed to initialize AIProjectClient: {e}")
 
 # --- HTML Placeholder ---
 HTML = """{{ your HTML goes here }}"""
@@ -47,7 +48,7 @@ def ask():
     chat.append({"role": "user", "text": question})
 
     try:
-        logger.info("🧵 Creating thread and sending message...")
+        logger.info(" Creating thread and sending message...")
 
         # Create thread if not already created
         if "thread_id" not in session:
@@ -77,19 +78,24 @@ def ask():
             session["chat"] = chat
             return jsonify({"answer": error_msg})
 
-        # Fetch messages and extract assistant reply
-        messages = list(project_client.agents.messages.list(thread_id=thread.id))
-        agent_reply = next(
-            (msg.content if isinstance(msg.content, str) else getattr(msg.content, "text", "No response"))
-            for msg in reversed(messages) if msg.role.lower() == "assistant"
+        # Fetch messages and extract assistant reply using text_messages[-1].text.value
+        messages = project_client.agents.messages.list(
+            thread_id=thread.id,
+            order=ListSortOrder.ASCENDING
         )
 
-        chat.append({"role": "agent", "text": str(agent_reply)})
+        agent_reply = next(
+            (msg.text_messages[-1].text.value for msg in reversed(list(messages))
+             if msg.role.lower() == "assistant" and msg.text_messages),
+            "No response from agent."
+        )
+
+        chat.append({"role": "agent", "text": agent_reply})
         session["chat"] = chat
-        return jsonify({"answer": str(agent_reply)})
+        return jsonify({"answer": agent_reply})
 
     except Exception as e:
-        logger.error(f"❌ Error communicating with Azure AI Agent: {e}")
+        logger.error(f" Error communicating with Azure AI Agent: {e}")
         error_msg = f"Error: {e}"
         chat.append({"role": "agent", "text": error_msg})
         session["chat"] = chat
