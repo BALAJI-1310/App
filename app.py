@@ -26,7 +26,7 @@ try:
 except Exception as e:
     logger.error(f"❌ Failed to initialize AIProjectClient: {e}")
 
-# --- HTML Template (unchanged) ---
+# --- HTML Template ---
 HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -96,7 +96,7 @@ if (!question) return;
 sendBtn.disabled = true;
 const userMsgDiv = document.createElement('div');
 userMsgDiv.className = 'message user';
-userMsgDiv.innerHTML = <div class="bubble">${escapeHtml(question)}</div>;
+userMsgDiv.innerHTML = `<div class="bubble">${escapeHtml(question)}</div>`;
 chatBox.appendChild(userMsgDiv);
 scrollToBottom();
 const typingDiv = document.createElement('div');
@@ -120,7 +120,7 @@ clearInterval(typingInterval);
 chatBox.removeChild(typingDiv);
 const agentMsgDiv = document.createElement('div');
 agentMsgDiv.className = 'message agent';
-agentMsgDiv.innerHTML = <div class="bubble">${escapeHtml(data.answer)}</div>;
+agentMsgDiv.innerHTML = `<div class="bubble">${escapeHtml(data.answer)}</div>`;
 chatBox.appendChild(agentMsgDiv);
 scrollToBottom();
 sendBtn.disabled = false;
@@ -133,7 +133,7 @@ clearInterval(typingInterval);
 chatBox.removeChild(typingDiv);
 const errorDiv = document.createElement('div');
 errorDiv.className = 'message agent';
-errorDiv.innerHTML = <div class="bubble">Error: Unable to get response from the server.</div>;
+errorDiv.innerHTML = `<div class="bubble">Error: Unable to get response from the server.</div>`;
 chatBox.appendChild(errorDiv);
 scrollToBottom();
 sendBtn.disabled = false;
@@ -151,7 +151,6 @@ return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 </body>
 </html>
 """
-
 # --- Routes ---
 @app.route("/", methods=["GET"])
 def index():
