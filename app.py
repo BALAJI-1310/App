@@ -3,6 +3,7 @@ import logging
 from flask import Flask, render_template_string, request, session, jsonify, redirect, url_for
 from azure.identity import DefaultAzureCredential
 from azure.ai.projects import AIProjectClient
+from azure.ai.projects.models import ListOrder
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
@@ -13,79 +14,40 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # --- Azure AI SDK Configuration ---
-# Replace these with your actual values
-CONNECTION_STRING = "eastus.api.azureml.ms;d6278e00-0ed0-4d06-bb25-0941bb3055eb;AI-102;ridersquery"
-AGENT_ID = "asst_GCfvXZLd1uuBt6MH0ZFxt9t"
+ENDPOINT = "https://eastus.api.azureml.ms/api/projects/ridersquery"  # Replace with your actual endpoint
+AGENT_ID = "asst_GCfvXZLd1uuBt6MH0ZFxt9t"  # Replace with your actual agent ID
 
 # Initialize Azure AI Project client
 try:
-    project_client = AIProjectClient.from_connection_string(
-        credential=DefaultAzureCredential(),
-        conn_str=CONNECTION_STRING
+    project_client = AIProjectClient(
+        endpoint=ENDPOINT,
+        credential=DefaultAzureCredential()
     )
     logger.info("✅ Connected to Azure AI Project successfully.")
 except Exception as e:
     logger.error(f"❌ Failed to initialize AIProjectClient: {e}")
 
-# --- HTML Template (unchanged from your version) ---
+# --- HTML Template ---
 HTML = """
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>Azure AI Foundry Chat</title>
-<style>
-body { font-family: Arial, sans-serif; background: #f3f3f3; margin: 0; height: 100vh; display: flex; flex-direction: column; }
-header { display: flex; align-items: center; padding: 8px 16px; background: #222; color: white; height: 50px; }
-header h1 { font-size: 20px; margin: 0; }
-.chat-container { max-width: 1100px; margin: 20px auto; background: white; border-radius: 5px; padding: 20px; flex: 1; display: flex; flex-direction: column; width: 100%; }
-.chat-box { max-height: 600px; overflow-y: auto; flex: 1; padding-bottom: 80px; }
-.message { margin-bottom: 10px; display: flex; }
-.message.user { justify-content: flex-end; }
-.message.agent { justify-content: flex-start; }
-.bubble { padding: 12px 18px; border-radius: 15px; display: inline-block; max-width: 80%; word-wrap: break-word; }
-.message.user .bubble { background: #007bff; color: white; border-bottom-right-radius: 0; }
-.message.agent .bubble { background: #e5e5ea; color: black; border-bottom-left-radius: 0; }
-.input-bar { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: flex; justify-content: center; align-items: center; width: 100%; max-width: 1200px; padding: 0 20px; }
-textarea { flex: 1; max-width: 1000px; min-height: 38px; max-height: 50px; resize: none; padding: 10px 14px; border-radius: 25px; border: 1px solid #ccc; font-size: 16px; overflow-y: auto; line-height: 1.4; box-sizing: border-box; transition: all 0.2s ease; }
-.send-btn { background: #007bff; border: none; color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; margin-left: 10px; font-size: 16px; }
-.send-btn:disabled { background: #5a9bf9; cursor: not-allowed; }
-.typing .bubble { font-style: italic; color: gray; background: #f0f0f0; }
-.clear-btn { background-color: transparent; border: 1px solid #ccc; color: #fff; padding: 6px 12px; border-radius: 20px; font-size: 14px; cursor: pointer; transition: all 0.3s ease; }
-.clear-btn:hover { background-color: #555; border-color: #888; }
-</style>
+    <title>Azure AI Chat</title>
 </head>
 <body>
-<header>
-<h1>Azure AI Foundry Chat</h1>
-<div style="margin-left:auto;">
-<form action="{{ url_for('clear_chat') }}" method="post">
-<button type="submit" class="clear-btn">Clear Chat</button>
-</form>
-</div>
-</header>
-<div class="chat-container">
-<div class="chat-box" id="chatBox">
-{% if chat %}
-    {% for msg in chat %}
-        <div class="message {{ msg.role }}">
-            <div class="bubble">{{ msg.text|safe }}</div>
-        </div>
-    {% endfor %}
-{% else %}
-    <div class="message agent">
-        <div class="bubble">Hello! I’m your Azure AI Foundry assistant. Ask me something to begin.</div>
+    <h1>Chat with Azure AI Agent</h1>
+    <div id="chat">
+        {% for message in chat %}
+            <p><strong>{{ message.role }}:</strong> {{ message.text }}</p>
+        {% endfor %}
     </div>
-{% endif %}
-</div>
-</div>
-<form id="chatForm" class="input-bar">
-<textarea name="question" placeholder="Type your question here..." required></textarea>
-<button type="submit" class="send-btn" id="sendBtn">Send</button>
-</form>
-<script>
-// (JavaScript stays unchanged from your existing HTML)
-</script>
+    <form id="chatForm" method="post" action="/ask">
+        <input type="text" name="question" placeholder="Ask something..." required>
+        <button type="submit">Send</button>
+    </form>
+    <form method="post" action="/clear">
+        <button type="submit">Clear Chat</button>
+    </form>
 </body>
 </html>
 """
@@ -100,8 +62,7 @@ def index():
 
 @app.route("/ask", methods=["POST"])
 def ask():
-    data = request.get_json()
-    question = data.get("question", "").strip()
+    question = request.form.get("question", "").strip()
     if not question:
         return jsonify({"answer": "Please provide a valid question."})
 
@@ -109,45 +70,57 @@ def ask():
     chat.append({"role": "user", "text": question})
 
     try:
-        logger.info("Sending message to Azure AI Agent using SDK...")
+        logger.info("Sending message to Azure AI Agent...")
 
-        # Create a new thread or reuse an existing one
+        # Get agent
+        agent = project_client.agents.get_agent(AGENT_ID)
+
+        # Create thread if not exists
         if "thread_id" not in session:
-            thread = project_client.agents.create_thread()
+            thread = project_client.agents.create_thread(
+                agent_id=agent.id,
+                role="user",
+                content=question
+            )
             session["thread_id"] = thread.id
         else:
             thread = project_client.agents.get_thread(session["thread_id"])
 
-        # Send the user’s message
-        project_client.agents.create_message(
-            thread_id=thread.id,
-            role="user",
-            content=question
-        )
+            # Send message
+            project_client.agents.messages.create(
+                thread_id=thread.id,
+                role="user",
+                content=question
+            )
 
-        # Process the agent run
-        run = project_client.agents.create_and_process_run(
-            thread_id=thread.id,
-            agent_id=AGENT_ID
-        )
+        # Run agent
+        run = project_client.agents.runs.create_and_process(thread_id=thread.id)
 
-        # Fetch messages (get the latest assistant reply)
-        messages = project_client.agents.list_messages(thread_id=thread.id)
-        agent_reply = next(
-            (msg.content for msg in reversed(messages.text_messages) if msg.role.lower() == "assistant"),
-            "No response from agent."
-        )
+        if run.status == "failed":
+            error_msg = f"Run failed: {run.last_error}"
+            logger.error(error_msg)
+            chat.append({"role": "agent", "text": error_msg})
+        else:
+            # Get messages
+            messages = project_client.agents.messages.list(
+                thread_id=thread.id,
+                order=ListOrder.ASCENDING
+            )
+            agent_reply = next(
+                (msg.text.message for msg in reversed(messages) if msg.role.lower() == "assistant"),
+                "No response from agent."
+            )
+            chat.append({"role": "agent", "text": agent_reply})
 
-        chat.append({"role": "agent", "text": agent_reply})
         session["chat"] = chat
-        return jsonify({"answer": agent_reply})
+        return redirect(url_for("index"))
 
     except Exception as e:
         logger.error(f"Error communicating with Azure AI Agent: {e}")
         error_msg = f"Error: {e}"
         chat.append({"role": "agent", "text": error_msg})
         session["chat"] = chat
-        return jsonify({"answer": error_msg})
+        return redirect(url_for("index"))
 
 
 @app.route("/clear", methods=["POST"])
