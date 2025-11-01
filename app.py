@@ -14,9 +14,9 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
 # --- Azure AI SDK Configuration ---
-ENDPOINT = os.environ.get("PROJECT_ENDPOINT")  # Set this in your environment
-AGENT_ID = os.environ.get("AGENT_ID")          # Set this in your environment
-
+# --- Azure AI SDK Configuration ---
+ENDPOINT = "https://eastus.api.azureml.ms/api/projects/ridersquery"  # Replace with your actual endpoint
+AGENT_ID = "asst_GCfvXZLd1uuBt6MH0ZFxt9t"  
 # Initialize Azure AI Project client
 try:
     project_client = AIProjectClient(
