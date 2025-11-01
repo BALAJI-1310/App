@@ -1,3 +1,5 @@
+
+
 import os
 import logging
 from flask import Flask, render_template_string, request, session, jsonify, redirect, url_for
@@ -151,6 +153,7 @@ return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 </body>
 </html>
 """
+
 # --- Routes ---
 @app.route("/", methods=["GET"])
 def index():
@@ -170,27 +173,18 @@ def ask():
     chat.append({"role": "user", "text": question})
 
     try:
-        logger.info("Sending message to Azure AI Agent...")
+        logger.info("🔁 Creating thread and processing run...")
 
-        # Create a new thread or reuse an existing one
-        if "thread_id" not in session:
-            thread = project_client.agents.create_thread()
-            session["thread_id"] = thread.id
-        else:
-            thread = project_client.agents.get_thread(session["thread_id"])
-
-        # Send the user’s message
-        project_client.agents.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=question
+        # Create thread and run in one step
+        run = project_client.agents.create_thread_and_process_run(
+            agent_id=AGENT_ID,
+            messages=[{"role": "user", "content": question}]
         )
+        thread_id = run.thread_id
+        session["thread_id"] = thread_id
 
-        # Process the agent run
-        run = project_client.agents.runs.create_and_process(thread_id=thread.id, agent_id=AGENT_ID)
-
-        # Fetch messages (get the latest assistant reply)
-        messages = project_client.agents.messages.list(thread_id=thread.id)
+        # Fetch messages from the thread
+        messages = project_client.threads.messages.list(thread_id=thread_id)
         agent_reply = next(
             (msg.text.message for msg in reversed(messages) if msg.role.lower() == "assistant"),
             "No response from agent."
@@ -201,7 +195,7 @@ def ask():
         return jsonify({"answer": agent_reply})
 
     except Exception as e:
-        logger.error(f"Error communicating with Azure AI Agent: {e}")
+        logger.error(f"❌ Error communicating with Azure AI Agent: {e}")
         error_msg = f"Error: {e}"
         chat.append({"role": "agent", "text": error_msg})
         session["chat"] = chat
