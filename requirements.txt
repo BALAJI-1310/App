@@ -1,0 +1,5 @@
+
+flask>=2.3.3
+azure-ai-projects>=1.0.0b09
+azure-identity>=1.15.0
+azure-core>=1.33.0
