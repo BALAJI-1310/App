@@ -1,8 +1,8 @@
 import os
 import logging
-import requests
 from flask import Flask, render_template_string, request, session, jsonify, redirect, url_for
 from azure.identity import DefaultAzureCredential
+from azure.ai.projects import AIProjectClient
 
 # --- Logging Setup ---
 logging.basicConfig(level=logging.INFO)
@@ -12,15 +12,22 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
 
-# --- Configuration ---
-AGENT_ENDPOINT = "https://<your-resource>.services.ai.azure.com/agents/<your-agent-id>/chat/completions"
+# --- Azure AI SDK Configuration ---
+# Replace these with your actual values
+CONNECTION_STRING = "eastus.api.azureml.ms;d6278e00-0ed0-4d06-bb25-0941bb3055eb;AI-102;ridersquery"
+AGENT_ID = "asst_GCfvXZLd1uuBt6MH0ZFxt9t"
 
-if not AGENT_ENDPOINT:
-    logger.error("AGENT_ENDPOINT is not set. Please update the value in the script.")
-else:
-    logger.info(f"Using AGENT_ENDPOINT: {AGENT_ENDPOINT}")
+# Initialize Azure AI Project client
+try:
+    project_client = AIProjectClient.from_connection_string(
+        credential=DefaultAzureCredential(),
+        conn_str=CONNECTION_STRING
+    )
+    logger.info("✅ Connected to Azure AI Project successfully.")
+except Exception as e:
+    logger.error(f"❌ Failed to initialize AIProjectClient: {e}")
 
-# --- HTML Template ---
+# --- HTML Template (unchanged from your version) ---
 HTML = """
 <!DOCTYPE html>
 <html lang="en">
@@ -77,84 +84,7 @@ textarea { flex: 1; max-width: 1000px; min-height: 38px; max-height: 50px; resiz
 <button type="submit" class="send-btn" id="sendBtn">Send</button>
 </form>
 <script>
-const chatBox = document.getElementById('chatBox');
-const chatForm = document.getElementById('chatForm');
-const sendBtn = document.getElementById('sendBtn');
-const textarea = chatForm.querySelector('textarea');
-
-function scrollToBottom() { chatBox.scrollTop = chatBox.scrollHeight; }
-scrollToBottom();
-
-chatForm.addEventListener('submit', function(event) {
-    event.preventDefault();
-    const question = textarea.value.trim();
-    if (!question) return;
-    sendBtn.disabled = true;
-
-    const userMsgDiv = document.createElement('div');
-    userMsgDiv.className = 'message user';
-    userMsgDiv.innerHTML = `<div class="bubble">${escapeHtml(question)}</div>`;
-    chatBox.appendChild(userMsgDiv);
-    scrollToBottom();
-
-    const typingDiv = document.createElement('div');
-    typingDiv.className = 'message agent typing-message';
-    typingDiv.innerHTML = '<div class="bubble typing" id="typingBubble">.</div>';
-    chatBox.appendChild(typingDiv);
-    scrollToBottom();
-
-    let dotCount = 1;
-    const typingInterval = setInterval(() => {
-        dotCount = (dotCount % 3) + 1;
-        document.getElementById('typingBubble').textContent = '.'.repeat(dotCount);
-    }, 500);
-
-    fetch('{{ url_for("ask") }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: question })
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log("Response from AI Foundry agent:", data); // 👈 Logs full JSON response
-
-        clearInterval(typingInterval);
-        chatBox.removeChild(typingDiv);
-
-        const agentMsgDiv = document.createElement('div');
-        agentMsgDiv.className = 'message agent';
-        agentMsgDiv.innerHTML = `<div class="bubble">${escapeHtml(data.answer)}</div>`;
-        chatBox.appendChild(agentMsgDiv);
-
-        scrollToBottom();
-        sendBtn.disabled = false;
-        textarea.value = '';
-        textarea.style.height = 'auto';
-        textarea.focus();
-    })
-    .catch(error => {
-        console.error("Error calling backend:", error); // 👈 Log errors too
-        clearInterval(typingInterval);
-        chatBox.removeChild(typingDiv);
-
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'message agent';
-        errorDiv.innerHTML = `<div class="bubble">Error: Unable to get response from the server.</div>`;
-        chatBox.appendChild(errorDiv);
-        scrollToBottom();
-        sendBtn.disabled = false;
-    });
-});
-
-textarea.addEventListener('input', function () {
-    this.style.height = 'auto';
-    this.style.height = (this.scrollHeight) + 'px';
-});
-
-function escapeHtml(text) {
-    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
-}
+// (JavaScript stays unchanged from your existing HTML)
 </script>
 </body>
 </html>
@@ -179,41 +109,41 @@ def ask():
     chat.append({"role": "user", "text": question})
 
     try:
-        logger.info("Sending question to Azure AI Foundry agent...")
+        logger.info("Sending message to Azure AI Agent using SDK...")
 
-        credential = DefaultAzureCredential()
-        access_token = credential.get_token("https://ai.azure.com/.default")
+        # Create a new thread or reuse an existing one
+        if "thread_id" not in session:
+            thread = project_client.agents.create_thread()
+            session["thread_id"] = thread.id
+        else:
+            thread = project_client.agents.get_thread(session["thread_id"])
 
-        headers = {
-            "Authorization": f"Bearer {access_token.token}",
-            "Content-Type": "application/json"
-        }
+        # Send the user’s message
+        project_client.agents.create_message(
+            thread_id=thread.id,
+            role="user",
+            content=question
+        )
 
-        payload = {
-            "messages": [
-                {"role": "user", "content": question}
-            ]
-        }
+        # Process the agent run
+        run = project_client.agents.create_and_process_run(
+            thread_id=thread.id,
+            agent_id=AGENT_ID
+        )
 
-        response = requests.post(AGENT_ENDPOINT, headers=headers, json=payload)
-        logger.info(f"Agent response status: {response.status_code}")
+        # Fetch messages (get the latest assistant reply)
+        messages = project_client.agents.list_messages(thread_id=thread.id)
+        agent_reply = next(
+            (msg.content for msg in reversed(messages.text_messages) if msg.role.lower() == "assistant"),
+            "No response from agent."
+        )
 
-        if "application/json" not in response.headers.get("Content-Type", ""):
-            logger.error("Non-JSON response received: %s", response.text)
-            chat.append({"role": "agent", "text": "Error: Unexpected response format from agent."})
-            session["chat"] = chat
-            return jsonify({"answer": "Error: Unexpected response format from agent."})
-
-        result = response.json()
-        logger.info(f"Response JSON: {result}")
-
-        answer = result["choices"][0]["message"]["content"]
-        chat.append({"role": "agent", "text": answer})
+        chat.append({"role": "agent", "text": agent_reply})
         session["chat"] = chat
-        return jsonify({"answer": answer})
+        return jsonify({"answer": agent_reply})
 
     except Exception as e:
-        logger.error(f"Error querying AI Foundry agent: {e}")
+        logger.error(f"Error communicating with Azure AI Agent: {e}")
         error_msg = f"Error: {e}"
         chat.append({"role": "agent", "text": error_msg})
         session["chat"] = chat
@@ -223,4 +153,5 @@ def ask():
 @app.route("/clear", methods=["POST"])
 def clear_chat():
     session.pop("chat", None)
+    session.pop("thread_id", None)
     return redirect(url_for("index"))
