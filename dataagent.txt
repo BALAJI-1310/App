@@ -1,0 +1,63 @@
+
+
+
+
+
+Fabric Data Agent – Connection and Limitation
+
+
+
+
+
+
+What is Fabric Data Agent?
+The Fabric Data Agent in Microsoft Fabric enables users to interact with organizational data stored in OneLake using natural language. It allows teams to ask plain-English questions and receive relevant, contextual answers powered by generative AI. This makes data insights more accessible to everyone, including those without technical expertise or deep knowledge of the data structure. The agent translates conversational queries into meaningful responses, helping users explore and understand their data more intuitively.
+
+Connecting with Web Application:
+Connecting a web application to the Microsoft Fabric Data Agent involves initiating communication from outside the Fabric environment. In this setup, the external application attempts to authenticate and invoke the Data Agent using SDK - FabricDataAgentClient, which is currently in preview.
+During implementation, Azure Active Directory (AAD) authentication was used successfully to establish the connection.
+However, attempts to authenticate using Azure Managed Identity failed, revealing a key limitation: Currently Managed Identity is not supported for authenticating with the Fabric Data Agent. This constraint is documented in Microsoft’s official guidance and impacts scenarios where secure, automated service-to-service authentication is preferred.
+Reference link for the GitHub repository given by Microsoft for connecting Fabric data agent to web applications using SDK:- https://github.com/microsoft/fabric_data_agent_client/tree/main
+
+Access Control and Workspace Permissions:
+When using Azure Active Directory (AAD) authentication, the user must be explicitly added to the Fabric workspace where the Data Agent is configured. Without this, authentication will fail even if the credentials are valid.
+The user must have appropriate role-based access (e.g., Viewer, Contributor) within the workspace to interact with datasets exposed through the agent.
+The Fabric Data Agent respects Row-Level Security (RLS) and Object-Level Security (OLS) defined on the underlying datasets. If a user is restricted by RLS or OLS, they will see “no access” or receive incomplete results when querying protected data.
+Limitations of Fabric Data Agent:
+
+1. No Managed Identity Support
+•	The Fabric Data Agent does not support Azure Managed Identity, which is commonly used for secure, automated service-to-service authentication in cloud environments.
+•	We can have AAD authentication for it currently and if we try to access the data agent using SAMI it is giving us errors has Un-Authorized even though we have given all the required permissions.
+•	Reference- https://community.fabric.microsoft.com/t5/Fabric-platform/Does-Fabric-Data-agent-support-Managed-Identity-or-Service/m-p/4685958#M15611
+
+2.Read-Only Query Generation
+•	The Fabric Data Agent only generates read-only queries in SQL, DAX, or KQL — it cannot perform data manipulation operations.
+•	Queries that attempt to create, update, or delete data will not be supported or executed.
+•	This limits the agent’s use to exploratory analysis and reporting, not transactional or operational data tasks.
+
+3. No Support for Unstructured Data
+•	The agent is designed for structured data sources such as relational databases, tabular formats, or semantic models.
+•	It does not support unstructured formats like .pdf, .docx, .txt, or other document-based resources.
+•	Attempts to query or ingest unstructured content will result in unsupported operation errors.
+
+4. Fixed LLM Configuration
+•	The underlying Large Language Model (LLM) used by the Fabric Data Agent is fixed and cannot be customized or replaced.
+
+5. Accuracy and Table Selection Constraints
+•	The Fabric Data Agent has a limit of 25 tables per query session. If you attempt to include more than 25 tables, the system will either reject the query or degrade its performance.
+•	Including a large number of tables can reduce the accuracy of the generated responses, as the agent may struggle to maintain context across multiple datasets.
+•	The agent is optimized for focused, conversational queries, not broad multi-table analysis. For best results, limit queries to a small, relevant subset of tables.
+•	Complex joins or relationships across many tables may not be interpreted correctly, leading to incomplete or misleading answers
+
+6. Visualization Capability
+•	Currently, the Fabric Data Agent does not offer native visualization features similar to platforms like Databricks Genie. Visualization must be handled externally using tools such as Power BI, Fabric notebooks, or other reporting solutions integrated with your Fabric workspace.
+•	Reference Link:- https://community.fabric.microsoft.com/t5/Fabric-platform/Fabric-data-Agent-visualization-capability-and-learning/m-p/4769148#:~:text=It%20mainly%20connects%20data%20sources,as%20Solution%20%E2%80%93%20help%20others%20too!
+
+
+
+
+
+
+
+
+
