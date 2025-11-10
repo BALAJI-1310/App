@@ -102,19 +102,27 @@ class FabricDataAgentClient:
             raise
     
     def _refresh_token(self):
-        """
-        Refresh the authentication token.
-        """
-        try:
-            print("🔄 Refreshing authentication token...")
-            if self.credential is None:
-                raise ValueError("No credential available")
-            self.token = self.credential.get_token("https://api.fabric.microsoft.com/.default")
-            print(f"✅ Token obtained, expires at: {time.ctime(self.token.expires_on)}")
-            
-        except Exception as e:
-            print(f"❌ Token refresh failed: {e}")
-            raise
+    """
+    Refresh the authentication token.
+    """
+    try:
+        print("🔄 Using manually provided token instead of Azure login...")
+
+        # 🔑 Replace this with your actual bearer token
+        manual_token_value = "eyJ0eXAiOiJKV1QiLCJhbGciOiJ..."  # <-- your token here
+
+        # Fake the token object so the rest of the code works
+        self.token = type("Token", (object,), {
+            "token": manual_token_value,
+            "expires_on": time.time() + 3600  # token valid for 1 hour
+        })()
+
+        print(f"✅ Manual token set, expires at: {time.ctime(self.token.expires_on)}")
+
+    except Exception as e:
+        print(f"❌ Token refresh failed: {e}")
+        raise
+
     
     def _get_openai_client(self) -> OpenAI:
         """
