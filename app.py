@@ -107,3 +107,92 @@ def clear_chat():
     session.pop("chat", None)
     session.pop("thread_id", None)
     return redirect(url_for("index"))
+
+-=----------------------------------------------------------------
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from fabric_data_agent_client import FabricDataAgentClient
+import os
+import webbrowser
+from threading import Timer
+
+app = Flask(__name__)
+app.secret_key = "supersecretkey"
+
+# ===== Configuration =====
+TENANT_ID = os.getenv("TENANT_ID", "")
+DATA_AGENT_URL = os.getenv("DATA_AGENT_URL", "")
+
+# ===== Initialize Fabric Data Agent Client =====
+client = FabricDataAgentClient(
+    tenant_id=TENANT_ID,
+    data_agent_url=DATA_AGENT_URL
+)
+
+
+@app.route("/")
+def index():
+    chat = session.get("chat", [])
+    return render_template("index.html", chat=chat)
+
+
+@app.route("/ask", methods=["POST"])
+def ask():
+    data = request.get_json()
+    question = data.get("question", "").strip()
+
+    if not question:
+        return jsonify({"answer": "⚠️ Please enter a question."})
+
+    try:
+        # Call the Fabric Data Agent
+        run_details = client.get_run_details(question)
+
+        # Extract the assistant's latest natural language response
+        messages = run_details.get("messages", {}).get("data", [])
+        assistant_messages = [msg for msg in messages if msg.get("role") == "assistant"]
+
+        answer_text = "⚠️ No response from the agent."
+
+        if assistant_messages:
+            latest_message = assistant_messages[-1]
+            content = latest_message.get("content", [])
+            if content:
+                first_item = content[0]
+                if hasattr(first_item, "text"):  # object with .text.value
+                    answer_text = first_item.text.value
+                elif isinstance(first_item, dict) and "text" in first_item:
+                    text_obj = first_item["text"]
+                    if isinstance(text_obj, dict) and "value" in text_obj:
+                        answer_text = text_obj["value"]
+                    else:
+                        answer_text = text_obj
+                else:
+                    answer_text = str(first_item)
+
+        # Save chat in session
+        chat = session.get("chat", [])
+        chat.append({"role": "user", "text": question})
+        chat.append({"role": "agent", "text": answer_text})
+        session["chat"] = chat
+
+        return jsonify({"answer": answer_text})
+
+    except Exception as e:
+        print(f"❌ Error in ask(): {e}")
+        return jsonify({"answer": f"❌ Error: {str(e)}"})
+
+
+@app.route("/clear_chat", methods=["POST"])
+def clear_chat():
+    session.pop("chat", None)
+    return redirect(url_for("index"))
+
+
+# ===== Automatically open the browser =====
+def open_browser():
+    webbrowser.open_new("http://127.0.0.1:5000")
+
+
+if __name__ == "__main__":
+    Timer(1, open_browser).start()
+    app.run(host="0.0.0.0", port=5000, debug=True)
