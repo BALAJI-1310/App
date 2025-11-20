@@ -150,6 +150,180 @@ print("\n### FINAL EXIT VALUE ###")
 print(json.dumps(notebookResult, indent=2))
  
 mssparkutils.notebook.exit(str(notebookResult))
+
+
+
+
+----------------------------------------------------------
+import sempy.fabric as fabric
+from fabric.dataagent.client import FabricOpenAI
+import time
+import re
+import json
+
+
+# ============================
+# INITIALIZE FABRIC DATA AGENT
+# ============================
+
+data_agent_name = "Finin_Simple_Data_ Agent"
+workspace_name = "FinIn Workspace Bronze"
+data_agent_stage = "production"
+
+fabric_client = FabricOpenAI(artifact_name=data_agent_name)
+
+
+# ============================
+# CREATE ASSISTANT + THREAD
+# ============================
+
+assistant = fabric_client.beta.assistants.create(model="gpt-4o")
+thread = fabric_client.beta.threads.create()
+
+print("Assistant ID:", assistant.id)
+print("Thread ID:", thread.id)
+
+
+# ============================
+# SEND QUESTION FROM CELL 1 PARAMETER
+# ============================
+
+fabric_client.beta.threads.messages.create(
+    thread_id=thread.id,
+    role="user",
+    content=QUESTION
+)
+
+
+# ============================
+# RUN THE AGENT
+# ============================
+
+run = fabric_client.beta.threads.runs.create(
+    thread_id=thread.id,
+    assistant_id=assistant.id,
+)
+
+while run.status in ("queued", "in_progress"):
+    run = fabric_client.beta.threads.runs.retrieve(
+        thread_id=thread.id,
+        run_id=run.id,
+    )
+    time.sleep(2)
+
+print("Run status:", run.status)
+
+
+# ============================
+# RETRIEVE MESSAGES
+# ============================
+
+response = fabric_client.beta.threads.messages.list(
+    thread_id=thread.id,
+    order="asc"
+)
+
+
+# ============================
+# SQL EXTRACTION LOGIC
+# ============================
+
+def extract_sql(text):
+    if not text:
+        return None
+
+    # 1) Look for ```sql fenced blocks
+    m = re.search(r"```sql\s*(.*?)```", text, re.S | re.I)
+    if m:
+        return m.group(1).strip()
+
+    # 2) Look for fenced block containing SQL
+    m = re.search(r"```.*?\n(.*?)```", text, re.S)
+    if m and re.search(r"\bSELECT\b|\bWITH\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b", m.group(1), re.I):
+        return m.group(1).strip()
+
+    # 3) SELECT ... FROM pattern
+    m = re.search(r"(SELECT[\s\S]{10,2000}?FROM[\s\S]{0,2000}?)(;|$)", text, re.I)
+    if m:
+        return m.group(1).strip()
+
+    return None
+
+
+# ============================
+# SQL CLEANER
+# ============================
+
+def clean_sql(sql):
+    if not sql:
+        return sql
+    sql = sql.replace("\n", " ").replace("\r", " ")
+    sql = re.sub(r"\s+", " ", sql)
+    return sql.strip()
+
+
+# ============================
+# PROCESS THE AGENT RESPONSE
+# ============================
+
+sql_query = None
+full_response = ""
+
+for msg in response:
+    if msg.role == "assistant" and msg.content:
+        txt = msg.content[0].text.value
+
+        full_response += txt + "\n\n"
+
+        if not sql_query:
+            extracted = extract_sql(txt)
+            if extracted:
+                sql_query = clean_sql(extracted)
+
+
+print("\nExtracted SQL Query:")
+print(sql_query)
+
+
+# ============================
+# DEBUG SECTION
+# ============================
+
+print("\n--- DEBUG: Full Assistant Response ---")
+print(full_response if full_response else "<NO ASSISTANT TEXT RETURNED>")
+
+
+print("\n--- DEBUG: Messages Summary ---")
+try:
+    print(f"Total messages returned: {len(response)}")
+except Exception:
+    print("Unable to count messages")
+
+for i, msg in enumerate(response):
+    role = getattr(msg, "role", "unknown")
+
+    try:
+        content_text = msg.content[0].text.value
+    except Exception:
+        try:
+            content_text = json.dumps(msg, default=str)[:2000]
+        except Exception:
+            content_text = str(msg)[:2000]
+
+    print(f"\nMessage #{i+1} — role={role}")
+    print(content_text)
+
+
+print("\n--- DEBUG: Raw Response Object (Trimmed) ---")
+try:
+    raw = json.dumps(response, default=lambda o: getattr(o, "__dict__", str(o)), indent=2)
+    print(raw[:8000])
+except Exception:
+    try:
+        print(str(response)[:8000])
+    except Exception:
+        print("<unable to serialize response>")
+
  
 
 
