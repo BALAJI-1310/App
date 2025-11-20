@@ -1,0 +1,156 @@
+%pip install -U fabric-data-agent-sdk
+
+QUESTION = "Generate the SQL query to find the 5 security names"
+
+
+
+import sempy.fabric as fabric
+from fabric.dataagent.client import FabricOpenAI
+import time
+import re
+import json
+ 
+ 
+# ============================
+# INITIALIZE FABRIC DATA AGENT
+# ============================
+ 
+data_agent_name = ""
+workspace_name = ""
+data_agent_stage = "production"
+ 
+fabric_client = FabricOpenAI(artifact_name=data_agent_name)
+ 
+ 
+# ============================
+# CREATE ASSISTANT + THREAD
+# ============================
+ 
+assistant = fabric_client.beta.assistants.create(model="gpt-4o")
+thread = fabric_client.beta.threads.create()
+ 
+print("Assistant ID:", assistant.id)
+print("Thread ID:", thread.id)
+ 
+ 
+# ============================
+# SEND QUESTION FROM CELL 1 PARAMETER
+# ============================
+ 
+fabric_client.beta.threads.messages.create(
+    thread_id=thread.id,
+    role="user",
+    content=QUESTION
+)
+ 
+ 
+# ============================
+# RUN THE AGENT
+# ============================
+ 
+run = fabric_client.beta.threads.runs.create(
+    thread_id=thread.id,
+    assistant_id=assistant.id,
+)
+ 
+while run.status in ("queued", "in_progress"):
+    run = fabric_client.beta.threads.runs.retrieve(
+        thread_id=thread.id,
+        run_id=run.id,
+    )
+    time.sleep(2)
+ 
+print("Run status:", run.status)
+ 
+ 
+# ============================
+# RETRIEVE MESSAGES
+# ============================
+ 
+response = fabric_client.beta.threads.messages.list(
+    thread_id=thread.id,
+    order="asc"
+)
+ 
+ 
+# ============================
+# SQL EXTRACTION LOGIC
+# ============================
+ 
+def extract_sql(text):
+    if not text:
+        return None
+ 
+    # 1) Look for ```sql fenced blocks
+    m = re.search(r"```sql\s*(.*?)```", text, re.S | re.I)
+    if m:
+        return m.group(1).strip()
+ 
+    # 2) Look for fenced block containing SQL
+    m = re.search(r"```.*?\n(.*?)```", text, re.S)
+    if m and re.search(r"\bSELECT\b|\bWITH\b|\bINSERT\b|\bUPDATE\b|\bDELETE\b", m.group(1), re.I):
+        return m.group(1).strip()
+ 
+    # 3) SELECT ... FROM pattern
+    m = re.search(r"(SELECT[\s\S]{10,2000}?FROM[\s\S]{0,2000}?)(;|$)", text, re.I)
+    if m:
+        return m.group(1).strip()
+ 
+    return None
+ 
+ 
+# ============================
+# SQL CLEANER
+# ============================
+ 
+def clean_sql(sql):
+    if not sql:
+        return sql
+    sql = sql.replace("\n", " ").replace("\r", " ")
+    sql = re.sub(r"\s+", " ", sql)
+    return sql.strip()
+ 
+ 
+# ============================
+# PROCESS THE AGENT RESPONSE
+# ============================
+ 
+sql_query = None
+full_response = ""
+ 
+for msg in response:
+    if msg.role == "assistant" and msg.content:
+        txt = msg.content[0].text.value
+ 
+        full_response += txt + "\n\n"
+ 
+        if not sql_query:
+            extracted = extract_sql(txt)
+            if extracted:
+                sql_query = clean_sql(extracted)
+ 
+print("\nExtracted SQL Query:")
+print(sql_query)
+
+
+
+
+from notebookutils import mssparkutils
+import json
+ 
+is_success = sql_query is not None
+ 
+notebookResult = {
+    "sql_query": sql_query,
+    "agent_response": full_response.strip(),
+    "isSuccess": is_success
+}
+ 
+print("\n### FINAL EXIT VALUE ###")
+print(json.dumps(notebookResult, indent=2))
+ 
+mssparkutils.notebook.exit(str(notebookResult))
+ 
+
+
+
