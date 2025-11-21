@@ -1,0 +1,182 @@
+# ============================
+# INSTALL (only needed once per notebook session)
+# ============================
+# %pip install -U fabric-data-agent-sdk
+
+# ============================
+# INPUT QUESTIONS
+# ============================
+QUESTIONS = [
+    "Give me sql quer that gives 3 Portfolio names",
+]
+
+# ============================
+# IMPORTS
+# ============================
+import sempy.fabric as fabric
+from fabric.dataagent.client import FabricOpenAI
+import time
+import re
+import json
+from notebookutils import mssparkutils
+
+# ============================
+# CONFIG – YOUR DATA AGENT
+# ============================
+data_agent_name = "Finin_Simple_Data_ Agent"
+data_agent_stage = "production"
+
+fabric_client = FabricOpenAI(
+    artifact_name=data_agent_name
+)
+
+# ============================
+# CREATE ASSISTANT + THREAD ONCE
+# (Fabric will reuse the same IDs anyway)
+# ============================
+assistant = fabric_client.beta.assistants.create(
+    model="gpt-4o",
+    instructions=(
+        "You are a SQL generator. "
+        "Whenever the user asks a question, respond with the SQL query "
+        "that answers the question, inside a ```sql fenced code block if possible."
+    ),
+)
+
+thread = fabric_client.beta.threads.create()
+
+print("Physical Assistant ID:", assistant.id)
+print("Physical Thread ID   :", thread.id)
+print("NOTE: Fabric Data Agent preview reuses the same thread ID by design.\n")
+
+# ============================
+# SQL EXTRACTION HELPERS
+# ============================
+def extract_sql_from_text(text: str):
+    if not text:
+        return None
+
+    # 1) ```sql fenced block
+    m = re.search(r"```sql\s*(.*?)```", text, re.S | re.I)
+    if m:
+        return m.group(1).strip()
+
+    # 2) any fenced block that looks like SQL
+    m = re.search(r"```(?:[a-zA-Z]+)?\s*(.*?)```", text, re.S)
+    if m and re.search(r"\bSELECT\b", m.group(1), re.I):
+        return m.group(1).strip()
+
+    # 3) any SELECT ... FROM pattern
+    m = re.search(r"(SELECT[\s\S]*?FROM[\s\S]*?)(;|$)", text, re.I)
+    if m:
+        return m.group(1).strip()
+
+    return None
+
+
+def clean_sql(sql: str | None):
+    if not sql:
+        return sql
+    sql = sql.replace("\n", " ").replace("\r", " ")
+    sql = re.sub(r"\s+", " ", sql)
+    return sql.strip()
+
+# ============================
+# RUN ONE QUESTION (USING SAME PHYSICAL THREAD)
+# ============================
+def run_single_question(question: str):
+    start_time = time.time()
+
+    # Add user message to the (single) thread
+    fabric_client.beta.threads.messages.create(
+        thread_id=thread.id,
+        role="user",
+        content=question,
+    )
+
+    # Create a run for THIS question -> THIS is unique per question
+    run = fabric_client.beta.threads.runs.create(
+        thread_id=thread.id,
+        assistant_id=assistant.id,
+    )
+
+    print(f"Question: {question}")
+    print(f"  run_id = {run.id}")
+
+    # Wait for completion
+    while run.status in ("queued", "in_progress"):
+        run = fabric_client.beta.threads.runs.retrieve(
+            thread_id=thread.id,
+            run_id=run.id,
+        )
+        time.sleep(2)
+
+    # Get latest messages (desc)
+    messages = fabric_client.beta.threads.messages.list(
+        thread_id=thread.id,
+        order="desc",
+        limit=20,
+    )
+
+    msgs_list = getattr(messages, "data", messages)
+
+    # Find the assistant message that belongs to THIS run_id
+    latest_assistant_msg = None
+    for msg in msgs_list:
+        if msg.role == "assistant" and getattr(msg, "run_id", None) == run.id:
+            latest_assistant_msg = msg
+            break
+
+    full_response_text = ""
+    sql_query = None
+
+    if latest_assistant_msg is not None:
+        chunks = []
+
+        for part in latest_assistant_msg.content:
+            if hasattr(part, "text") and part.text is not None and hasattr(part.text, "value"):
+                chunks.append(part.text.value)
+
+            if hasattr(part, "tool_calls") and part.tool_calls:
+                for tc in part.tool_calls:
+                    if hasattr(tc, "function") and tc.function is not None and hasattr(tc.function, "arguments"):
+                        chunks.append(str(tc.function.arguments))
+
+        full_response_text = "\n\n".join(chunks)
+
+        sql_query = extract_sql_from_text(full_response_text)
+        if sql_query:
+            sql_query = clean_sql(sql_query)
+
+    end_time = time.time()
+    duration = round(end_time - start_time, 3)
+
+    print(f"  status = {run.status}, duration = {duration}s")
+    print(f"  thread_id (Fabric) = {thread.id}")
+    print("--------------------------------------------------")
+
+    return {
+        "question": question,
+        "thread_id": thread.id,      # will be SAME for all; Fabric limitation
+        "run_id": run.id,            # UNIQUE per question
+        "assistant_id": assistant.id,
+        "run_status": run.status,
+        "agent_response": full_response_text.strip(),
+        "sql_query": sql_query,
+        "isSuccess": sql_query is not None,
+        "duration_seconds": duration,
+    }
+
+# ============================
+# RUN ALL QUESTIONS
+# ============================
+all_results = []
+
+for q in QUESTIONS:
+    result = run_single_question(q)
+    all_results.append(result)
+
+print("\n### FINAL RESULTS ###")
+print(json.dumps(all_results, indent=2))
+
+mssparkutils.notebook.exit(json.dumps(all_results))
