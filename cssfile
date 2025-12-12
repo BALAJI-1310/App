@@ -70,6 +70,44 @@
 
 ---------
 <div style="display: flex; align-items:center; gap: 16px; font-size: 16px; justify-content: flex-end;">
+<div style="display: flex; align-items:center; gap: 16px; font-size: 16px; justify-content:flex-end;">
+-----------------------------------------------
+
+<!-- BUTTONS GROUP -->
+<div style="display: flex; align-items: center; gap: 16px; font-size: 16px; margin-right:20px;">
+
+    <!-- Start New Chat -->
+    <form asp-action="Clear" method="post" style="display:inline;">
+        <input type="hidden" name="tabId" id="tabIdField" />
+        <button type="submit" title="Start New Chat"
+                style="background:none; border:none; color:white; cursor:pointer;">
+            <i class="fas fa-comment-medical"></i>
+        </button>
+    </form>
+
+    <!-- Help -->
+    <button title="Help" style="background:none; border:none; color:white; cursor:pointer"
+            onclick="window.open('https://www.microsoft.com/en-us/privacy/privacystatement','_blank')">
+        <i class="fas fa-question-circle"></i>
+    </button>
+
+</div>
+
+<!-- PROFILE GROUP (SEPARATE FLEX ITEM) -->
+<div class="user-profile" style="display:flex; align-items:center; font-size:16px; position:relative;">
+    <span id="user-name" style="margin-right: 10px;">Email</span>
+    <button aria-label="Open profile menu" onclick="toggleProfileMenu()"
+            style="background:none; border:none; padding:0; margin-left:10px; cursor:pointer;">
+        <i class="fas fa-user-circle" style="font-size:26px; color:white;"></i>
+    </button>
+
+    <div id="profile-menu"
+         style="display:none; position:absolute; top:50px; right:10px; background:white;
+                border:1px solid #ccc; border-radius:5px; padding:10px; box-shadow:0 4px 6px rgba(0,0,0,0.1); z-index:100;">
+        <a href="#" onclick="handleSignOut()" style="text-decoration:none; color:black; font-size:16px;">Sign Out</a>
+    </div>
+</div>
+
 
 
 
