@@ -1,0 +1,32 @@
+.bubble {
+    padding: 12px 18px;
+    border-radius: 15px;
+    display: inline-block;
+    max-width: 80%;
+    word-wrap: break-word;
+    max-height: 320px;     /* NEW: stops bubble from stretching */
+    overflow: auto;        /* NEW: adds scrollbars when needed */
+    box-sizing: border-box;
+}
+
+.table-container {
+    max-height: 300px;      /* vertical scroll inside bubble */
+    overflow: auto;         /* scroll both ways */
+    border: 1px solid #ccc; /* table border */
+    padding: 8px;
+    border-radius: 6px;
+    background: white;
+}
+
+.table-container table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 600px;       /* forces horizontal scroll */
+}
+
+.table-container th,
+.table-container td {
+    border: 1px solid #aaa;
+    padding: 6px 8px;
+    white-space: nowrap;    /* avoids breaking columns */
+}
