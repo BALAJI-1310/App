@@ -30,3 +30,37 @@
     padding: 6px 8px;
     white-space: nowrap;    /* avoids breaking columns */
 }
+
+---------------------------
+/* Style tables inside chat bubbles */
+.message.agent .bubble table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 8px;
+    background: white;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* Add borders */
+.message.agent .bubble table th,
+.message.agent .bubble table td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: left;
+    font-size: 14px;
+}
+
+/* Header styling */
+.message.agent .bubble table th {
+    background-color: #f0f0f0;
+    font-weight: bold;
+}
+
+/* Make table scrollable if too wide */
+.message.agent .bubble {
+    overflow-x: auto;
+    max-width: 100%;
+    display: block;
+}
+
