@@ -1,0 +1,34 @@
+.then(data => {
+    clearInterval(typingInterval);
+    chatBox.removeChild(typingDiv);
+
+    // Handle text + table responses
+    function renderAgentMessage(content) {
+        const agentMsgDiv = document.createElement('div');
+        agentMsgDiv.className = 'message agent';
+
+        // Detect HTML table output
+        if (typeof content === "string" && content.toLowerCase().includes("<table")) {
+            agentMsgDiv.innerHTML = `
+                <div class="bubble">
+                    <div class="table-container">
+                        ${content}
+                    </div>
+                </div>`;
+        } else {
+            agentMsgDiv.innerHTML = `<div class="bubble">${escapeHtml(content)}</div>`;
+        }
+
+        chatBox.appendChild(agentMsgDiv);
+        doscroll();
+    }
+
+    if (Array.isArray(data.answer)) {
+        data.answer.forEach(item => renderAgentMessage(item));
+    } else {
+        renderAgentMessage(data.answer);
+    }
+
+    sendBtn.disabled = false;
+    doscroll();
+})
