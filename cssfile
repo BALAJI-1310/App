@@ -123,4 +123,32 @@
 </a>
 
 
+--------------------------------------------
+<div id="profile-menu"
+     style="display:none; position:absolute; top:36px; right:0;
+            background:white; border:1px solid #ccc;
+            border-radius:8px; min-width:220px;
+            box-shadow:0 4px 8px rgba(0,0,0,0.15);
+            z-index:100;">
+
+    <!-- Profile info -->
+    <div style="display:flex; align-items:center; padding:12px; border-bottom:1px solid #eee;">
+        <i class="fas fa-user-circle"
+           style="font-size:32px; color:#555; margin-right:10px;"></i>
+
+        <div style="font-size:14px; color:#333;">
+            @ViewBag.CurrentUser.Email
+        </div>
+    </div>
+
+    <!-- Sign out -->
+    <div style="padding:10px;">
+        <a href="#" onclick="handleSignOut()"
+           style="display:block; padding:8px;
+                  text-decoration:none; color:#333;
+                  border-radius:4px;">
+            Sign out
+        </a>
+    </div>
+</div>
 
