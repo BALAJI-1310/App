@@ -152,3 +152,10 @@
     </div>
 </div>
 
+
+
+// Enable Send button only when there is text
+textarea.addEventListener('input', function () {
+    sendBtn.disabled = textarea.value.trim().length === 0;
+});
+
