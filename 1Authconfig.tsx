@@ -168,3 +168,8 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
+
+
+npm install @microsoft/applicationinsights-web @microsoft/applicationinsights-react-js
+
