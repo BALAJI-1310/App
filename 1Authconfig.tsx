@@ -1,11 +1,9 @@
-// ...existing code...
 import React, { createContext, useContext, useMemo, ReactNode, useEffect } from 'react';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { AccountInfo, InteractionStatus, EventType, EventMessage } from '@azure/msal-browser';
 import { loginRequest } from '@/config/authConfig';
 import { UserProfile } from '@/types';
-import TelemetryService from '@/services/TelemetryService';
-// ...existing code...
+import { logException, logBusinessCustomEvent } from '@/services/TelemetryService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -59,17 +57,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       const calledFlag = sessionStorage.getItem('authLoginCalled');
       if (calledFlag) {
-        // If we returned from auth and are authenticated, track success
         if (isAuthenticated) {
-          TelemetryService.trackEvent?.('Auth.Login.Succeeded', { account: account?.username || '' });
+          logBusinessCustomEvent('Auth.Login.Succeeded', { account: account?.username || '' });
         } else {
-          // We returned but not authenticated — track as failure/aborted
-          TelemetryService.trackEvent?.('Auth.Login.ReturnedNotAuthenticated', { account: account?.username || '' });
+          logBusinessCustomEvent('Auth.Login.ReturnedNotAuthenticated', { account: account?.username || '' });
         }
         sessionStorage.removeItem('authLoginCalled');
       }
     } catch (e) {
-      TelemetryService.trackException?.(e as Error, { source: 'AuthContext.init' });
+      logException(e as Error, { source: 'AuthContext.init', account: account?.username || '' });
     }
 
     // subscribe to MSAL events to capture login failures/successes
@@ -80,17 +76,27 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           try {
             if (message.eventType === EventType.LOGIN_FAILURE) {
               const err = (message.error as Error) || new Error('MSAL login failure');
-              TelemetryService.trackException?.(err, { source: 'MSAL.LOGIN_FAILURE', details: JSON.stringify(message) });
+              const httpStatus =
+                (message.error as any)?.status ||
+                (message.error as any)?.statusCode ||
+                (message.error as any)?.httpStatus ||
+                (message.error as any)?.response?.status;
+              logException(err, {
+                source: 'MSAL.LOGIN_FAILURE',
+                details: JSON.stringify(message),
+                account: accounts[0]?.username || '',
+                httpStatus,
+              });
             } else if (message.eventType === EventType.LOGIN_SUCCESS) {
-              TelemetryService.trackEvent?.('Auth.Login.MSALSuccess', { account: accounts[0]?.username || '' });
+              logBusinessCustomEvent('Auth.Login.MSALSuccess', { account: accounts[0]?.username || '' });
             }
           } catch (e) {
-            TelemetryService.trackException?.(e as Error, { source: 'AuthContext.msalCallback' });
+            logException(e as Error, { source: 'AuthContext.msalCallback', account: accounts[0]?.username || '' });
           }
         });
       }
     } catch (e) {
-      TelemetryService.trackException?.(e as Error, { source: 'AuthContext.addEventCallback' });
+      logException(e as Error, { source: 'AuthContext.addEventCallback', account: accounts[0]?.username || '' });
     }
 
     return () => {
@@ -107,15 +113,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async () => {
     try {
-      // telemetry: user started login
-      TelemetryService.trackEvent?.('Auth.Login.Initiated', { method: 'redirect' });
+      // telemetry: user started login (include email if present)
+      logBusinessCustomEvent('Auth.Login.Initiated', { method: 'redirect', account: account?.username || '' });
 
       // set flag so we can detect redirect-return
       try {
         sessionStorage.setItem('authLoginCalled', '1');
         sessionStorage.setItem('authLoginCalledAt', new Date().toISOString());
       } catch (e) {
-        TelemetryService.trackException?.(e as Error, { source: 'AuthContext.sessionStorage' });
+        logException(e as Error, { source: 'AuthContext.sessionStorage', account: account?.username || '' });
       }
 
       // visible debug log
@@ -125,7 +131,12 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Use redirect for more reliable login flow
       await instance.loginRedirect(loginRequest);
     } catch (error) {
-      TelemetryService.trackException?.(error as Error, { source: 'Auth.login' });
+      const httpStatus =
+        (error as any)?.status ||
+        (error as any)?.statusCode ||
+        (error as any)?.httpStatus ||
+        (error as any)?.response?.status;
+      logException(error as Error, { source: 'Auth.login', account: account?.username || '', httpStatus });
       // eslint-disable-next-line no-console
       console.error('Login failed:', error);
       throw error;
@@ -149,7 +160,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-// ...existing code...
+
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (context === undefined) {
