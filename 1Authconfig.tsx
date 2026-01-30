@@ -86,3 +86,17 @@ export const useAuth = (): AuthContextType => {
   }
   return context;
 };
+
+
+
+
+
+
+
+const httpStatus =
+        (error as any)?.status ||
+        (error as any)?.statusCode ||
+        (error as any)?.httpStatus ||
+        (error as any)?.response?.status;
+      logException(error as Error, { source: 'Auth.login', account: account?.username || '', httpStatus });
+
