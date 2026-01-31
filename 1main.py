@@ -220,3 +220,34 @@ initializeMsal().then(() => {
     </React.StrictMode>
   );
 });
+
+-------------------------------------------
+
+import { ApplicationInsights } from '@microsoft/applicationinsights-web';
+
+const instrumentationKey = import.meta.env.VITE_INSTRUMENTATION_KEY;
+
+if (!instrumentationKey) {
+    throw new Error('AppInsights key not provided');
+}
+
+const appInsights = new ApplicationInsights({
+    config: {
+        instrumentationKey
+    }
+});
+
+appInsights.loadAppInsights();
+
+export function logException(exception: Error, properties?: Record<string, any>) {
+    appInsights.trackException({
+        exception,
+        properties: {
+            Environment: import.meta.env.VITE_ENVIRONMENT,
+            ComponentName: import.meta.env.VITE_COMPONENT_NAME,
+            ComponentId: import.meta.env.VITE_COMPONENT_ID,
+
+        }
+    });
+}
+
