@@ -242,14 +242,12 @@ appInsights.loadAppInsights();
 export function logException(exception: Error, properties?: Record<string, any>) {
     appInsights.trackException({
         exception,
-        properties: {
-            Environment: import.meta.env.VITE_ENVIRONMENT,
-            ComponentName: import.meta.env.VITE_COMPONENT_NAME,
-            ComponentId: import.meta.env.VITE_COMPONENT_ID,
-
-        }
+        properties
     });
-}----------------------------------------------------
+}
+
+
+----------------------------------------------------
 
 
 async initThread(
@@ -278,4 +276,39 @@ async initThread(
     return {};
   }
 }
+
+-----------------------------------------------------------
+
+async initThread(
+  tabId: string,
+  agentId?: string
+): Promise<{ threadId?: string; welcomeMessage?: string }> {
+  try {
+    const response = await axios.post(`${API_BASE}/chat/init-thread`, {
+      tabId,
+      agentId,
+    });
+
+    return response.data;
+  } catch (error: any) {
+    const statusCode = error.response?.status;
+    const statusText = error.response?.statusText ?? 'Unknown Error';
+
+    logException(
+      new Error('Error'),
+      {
+        problemId: `${statusCode} ${statusText}`,
+        type: 'Error',
+        apiName: '/chat/init-thread',
+        statusCode,
+        backendMessage: error.response?.data,
+        tabId,
+        agentId,
+      }
+    );
+
+    return {};
+  }
+}
+
 
