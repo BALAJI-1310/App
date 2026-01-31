@@ -1,8 +1,15 @@
-import React, { createContext, useContext, useMemo, ReactNode } from 'react';
+
+import React, {
+  createContext,
+  useContext,
+  useMemo,
+  ReactNode,
+} from 'react';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { AccountInfo, InteractionStatus } from '@azure/msal-browser';
 import { loginRequest } from '@/config/authConfig';
 import { UserProfile } from '@/types';
+import { logException } from '@/services/TelemetryService';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -36,14 +43,16 @@ const getInitials = (name: string, email: string): string => {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const { instance, accounts, inProgress } = useMsal();
   const isAuthenticated = useIsAuthenticated();
-  const account = accounts[0] || null;
 
+  const account = accounts[0] || null;
   const isLoading = inProgress !== InteractionStatus.None;
 
   const user: UserProfile | null = useMemo(() => {
     if (!account) return null;
+
     const name = account.name || '';
     const email = account.username || '';
+
     return {
       name,
       email,
@@ -51,12 +60,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     };
   }, [account]);
 
+  /**
+   * MANUAL LOGIN (button click, forced re-login)
+   */
   const login = async () => {
     try {
-      // Use redirect for more reliable login flow (works in all browsers including embedded)
       await instance.loginRedirect(loginRequest);
-    } catch (error) {
-      console.error('Login failed:', error);
+    } catch (error: any) {
+      logException(error, {
+        source: 'AuthContext.login',
+        username: account?.username ?? 'unknown',
+        errorCode: error?.errorCode,
+      });
+
       throw error;
     }
   };
@@ -76,27 +92,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
 };
 
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
-
-
-
-
-
-
-
-const httpStatus =
-        (error as any)?.status ||
-        (error as any)?.statusCode ||
-        (error as any)?.httpStatus ||
-        (error as any)?.response?.status;
-      logException(error as Error, { source: 'Auth.login', account: account?.username || '', httpStatus });
-
