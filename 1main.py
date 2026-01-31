@@ -310,5 +310,234 @@ async initThread(
     return {};
   }
 }
+-----------------------------------
+import axios from 'axios';
+import { ChatRequest, ChatResponse, ChatMessage } from '@/types';
+import { logException } from '@/services/telemetry';
+
+const API_BASE = '/api';
+
+export const chatService = {
+  /**
+   * Send a question to the agent
+   */
+  async ask(request: ChatRequest): Promise<ChatResponse> {
+    try {
+      const formData = new FormData();
+      formData.append('question', request.question);
+      formData.append('tabId', request.tabId);
+      if (request.agentId) {
+        formData.append('agentId', request.agentId);
+      }
+
+      const response = await axios.post<ChatResponse>(
+        `${API_BASE}/chat/ask`,
+        formData,
+        { headers: { 'Content-Type': 'multipart/form-data' } }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText ?? 'Unknown Error';
+
+      logException(
+        new Error(`HTTPS Error ${statusCode} - ${statusText}`),
+        {
+          apiName: '/chat/ask',
+          Type: 'Error',
+          statusCode,
+          backendMessage: JSON.stringify(error.response?.data),
+        }
+      );
+
+      return {} as ChatResponse;
+    }
+  },
+
+  /**
+   * Initialize a chat thread
+   */
+  async initThread(
+    tabId: string,
+    agentId?: string
+  ): Promise<{ threadId?: string; welcomeMessage?: string }> {
+    try {
+      const response = await axios.post(`${API_BASE}/chat/init-thread`, {
+        tabId,
+        agentId,
+      });
+
+      return response.data;
+    } catch (error: any) {
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText ?? 'Unknown Error';
+
+      logException(
+        new Error(`HTTPS Error ${statusCode} - ${statusText}`),
+        {
+          apiName: '/chat/init-thread',
+          Type: 'Error',
+          statusCode,
+          backendMessage: JSON.stringify(error.response?.data),
+        }
+      );
+
+      return {};
+    }
+  },
+
+  /**
+   * Register a browser tab
+   */
+  async registerTab(tabId: string): Promise<void> {
+    try {
+      await axios.post(`${API_BASE}/chat/register-tab`, { tabId });
+    } catch (error: any) {
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText ?? 'Unknown Error';
+
+      logException(
+        new Error(`HTTPS Error ${statusCode} - ${statusText}`),
+        {
+          apiName: '/chat/register-tab',
+          Type: 'Error',
+          statusCode,
+          backendMessage: JSON.stringify(error.response?.data),
+        }
+      );
+    }
+  },
+
+  /**
+   * Get chat history for a tab
+   */
+  async getHistory(tabId: string): Promise<ChatMessage[]> {
+    try {
+      const response = await axios.get<ChatMessage[]>(
+        `${API_BASE}/chat/history/${tabId}`
+      );
+
+      return response.data.map((msg) => ({
+        ...msg,
+        timestamp: new Date(msg.timestamp),
+      }));
+    } catch (error: any) {
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText ?? 'Unknown Error';
+
+      logException(
+        new Error(`HTTPS Error ${statusCode} - ${statusText}`),
+        {
+          apiName: '/chat/history',
+          Type: 'Error',
+          statusCode,
+          backendMessage: JSON.stringify(error.response?.data),
+        }
+      );
+
+      return [];
+    }
+  },
+
+  /**
+   * Clear chat history
+   */
+  async clear(tabId: string): Promise<void> {
+    try {
+      await axios.post(`${API_BASE}/chat/clear`, { tabId });
+    } catch (error: any) {
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText ?? 'Unknown Error';
+
+      logException(
+        new Error(`HTTPS Error ${statusCode} - ${statusText}`),
+        {
+          apiName: '/chat/clear',
+          Type: 'Error',
+          statusCode,
+          backendMessage: JSON.stringify(error.response?.data),
+        }
+      );
+    }
+  },
+
+  /**
+   * Download a file from blob storage
+   */
+  async downloadBlobFile(containerName: string, blobName: string): Promise<void> {
+    try {
+      const response = await axios.get(`${API_BASE}/blob/download`, {
+        params: {
+          fileName: blobName,
+          fileId: `${containerName}/${blobName}`,
+        },
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', blobName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText ?? 'Unknown Error';
+
+      logException(
+        new Error(`HTTPS Error ${statusCode} - ${statusText}`),
+        {
+          apiName: '/blob/download',
+          Type: 'Error',
+          statusCode,
+          backendMessage: JSON.stringify(error.response?.data),
+        }
+      );
+    }
+  },
+
+  /**
+   * Download a file from sandbox
+   */
+  async downloadSandboxFile(
+    containerName: string,
+    blobName: string
+  ): Promise<void> {
+    try {
+      const response = await axios.get(`${API_BASE}/blob/sandbox-download`, {
+        params: {
+          fileName: blobName,
+          fileId: `${containerName}/${blobName}`,
+        },
+        responseType: 'blob',
+      });
+
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', blobName);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      const statusCode = error.response?.status;
+      const statusText = error.response?.statusText ?? 'Unknown Error';
+
+      logException(
+        new Error(`HTTPS Error ${statusCode} - ${statusText}`),
+        {
+          apiName: '/blob/sandbox-download',
+          Type: 'Error',
+          statusCode,
+          backendMessage: JSON.stringify(error.response?.data),
+        }
+      );
+    }
+  },
+};
 
 
