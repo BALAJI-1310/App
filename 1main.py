@@ -249,5 +249,33 @@ export function logException(exception: Error, properties?: Record<string, any>)
 
         }
     });
+}----------------------------------------------------
+
+
+async initThread(
+  tabId: string,
+  agentId?: string
+): Promise<{ threadId?: string; welcomeMessage?: string }> {
+  try {
+    const response = await axios.post(`${API_BASE}/chat/init-thread`, {
+      tabId,
+      agentId,
+    });
+
+    return response.data;
+  } catch (error: any) {
+    logException(error, {
+      apiName: '/chat/init-thread',
+      tabId,
+      agentId,
+      statusCode: error.response?.status,
+      statusText: error.response?.statusText,
+      errorMessage: error.message,
+      backendMessage: error.response?.data,
+      isAxiosError: axios.isAxiosError(error),
+    });
+
+    return {};
+  }
 }
 
