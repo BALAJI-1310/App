@@ -54,4 +54,47 @@ print("Preview:")
 display(df)
 
 
+--------------------------------------
+
+
+abfs_path = f"abfss://ucmpsegmentexport@{inputStorageAccountName}.dfs.core.windows.net/Tables"
+
+print("Writing to:", abfs_path)
+
+-------------------------------------
+#spark.sql("CREATE SCHEMA IF NOT EXISTS segmentation")
+
+result_table = f"segmentation.segment_{segment_id}"
+
+(
+    df.write
+    .format("delta")
+    .mode("overwrite")
+    .option("path", abfs_path)
+    .saveAsTable(result_table)
+)
+
+print("Table created:", result_table)
+
+
+-------------------------------
+print("Previewing table records")
+
+preview_df = spark.sql(f"SELECT * FROM {result_table} LIMIT 100")
+
+display(preview_df)
+
+----------------------------------
+
+audience_count = spark.sql(f"SELECT COUNT(*) AS cnt FROM {result_table}").collect()[0]["cnt"]
+
+print("Audience Count:", audience_count)
+
+---------------------------------------------
+
+mssparkutils.notebook.exit(str(audience_count))
+--------------------------------------
+
+
+
 
