@@ -97,4 +97,10 @@ mssparkutils.notebook.exit(str(audience_count))
 
 
 
+segment_id = segment_id.lower()
+
+# make SQL safe
+segment_id = segment_id.replace("-", "_")
+
+
 
