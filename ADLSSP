@@ -1,0 +1,106 @@
+CREATE OR ALTER PROCEDURE dbo.usp_UpdateRunStatus
+(
+    @RunId UNIQUEIDENTIFIER,
+    @Status NVARCHAR(50),              -- Completed / Failed / Cancelled
+    @AudiencesCount BIGINT = NULL,
+    @NB_Error NVARCHAR(MAX) = NULL,    -- Notebook error (from notebook output)
+    @PipelineRunId NVARCHAR(100) = NULL
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE 
+        @StartedAt DATETIME2,
+        @DurationSeconds INT,
+        @RowsAffected INT,
+        @FinalError NVARCHAR(MAX);
+
+    BEGIN TRY
+
+        /* ============================================================
+           1. Fetch Start Time
+        ============================================================ */
+
+        SELECT @StartedAt = StartedAt
+        FROM dbo.SegmentRun
+        WHERE Id = @RunId;
+
+        -- Run not found (possible manual delete) → exit quietly
+        IF @StartedAt IS NULL
+            RETURN;
+
+        /* ============================================================
+           2. Duration
+        ============================================================ */
+
+        SET @DurationSeconds = DATEDIFF(SECOND, @StartedAt, SYSUTCDATETIME());
+
+        /* ============================================================
+           3. Decide Error Source
+        ============================================================ */
+
+        IF @Status = 'Failed'
+        BEGIN
+            IF @NB_Error IS NOT NULL AND LTRIM(RTRIM(@NB_Error)) <> ''
+            BEGIN
+                -- Notebook failure
+                SET @FinalError = CONCAT('Notebook: ', LEFT(@NB_Error, 3400));
+            END
+            ELSE
+            BEGIN
+                -- Unknown failure but not SP yet
+                SET @FinalError = 'Notebook: Execution failed without error message.';
+            END
+        END
+        ELSE
+        BEGIN
+            SET @FinalError = NULL;
+        END
+
+        /* ============================================================
+           4. Retry-safe Update
+        ============================================================ */
+
+        UPDATE dbo.SegmentRun
+        SET
+            Status = @Status,
+            EndedAt = SYSUTCDATETIME(),
+            DurationSeconds = @DurationSeconds,
+            AudienceCount = @AudiencesCount,
+            ErrorDetails = @FinalError,
+            PipelineRunId = ISNULL(@PipelineRunId, PipelineRunId)
+        WHERE Id = @RunId
+          AND Status = 'Running';
+
+        SET @RowsAffected = @@ROWCOUNT;
+
+        -- Retry protection (Synapse retries)
+        IF @RowsAffected = 0
+            RETURN;
+
+    END TRY
+    BEGIN CATCH
+
+        DECLARE @SqlErrorMessage NVARCHAR(MAX);
+        SET @SqlErrorMessage = ERROR_MESSAGE();
+
+        /* ============================================================
+           Stored Procedure Failure Logging
+        ============================================================ */
+
+        UPDATE dbo.SegmentRun
+        SET
+            Status = 'Failed',
+            EndedAt = SYSUTCDATETIME(),
+            ErrorDetails = CONCAT('SP: ', LEFT(@SqlErrorMessage, 3400)),
+            PipelineRunId = ISNULL(@PipelineRunId, PipelineRunId)
+        WHERE Id = @RunId
+          AND Status = 'Running';
+
+        -- Do NOT throw error back to Synapse
+        RETURN;
+
+    END CATCH
+END
+GO
