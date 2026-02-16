@@ -144,6 +144,8 @@ def run_segmentation_pipeline():
     except Exception as e:
         exit_failure("AUDIENCE COUNT FAILED", e)
 
+return audience_count
+
 -----------------------------------------------------------
 
 try:
