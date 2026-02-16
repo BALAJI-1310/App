@@ -76,17 +76,14 @@ def run_segmentation_pipeline():
         print("STEP 2: Loading Source Tables")
 
         contact_df = spark.read.format("delta").load(profilePath + "contactprofile")
-        contact_df.limit(1).collect()
+        contact_df.createOrReplaceTempView("contactprofile")
 
         account_df = spark.read.format("delta").load(profilePath + "accountprofile")
-        account_df.limit(1).collect()
+        account_df.createOrReplaceTempView("accountprofile")
 
         lead_df = spark.read.format("delta").load(cdpPath + "leadattributechangerestate")
-        lead_df.limit(1).collect()
-
-        contact_df.createOrReplaceTempView("contactprofile")
-        account_df.createOrReplaceTempView("accountprofile")
         lead_df.createOrReplaceTempView("leadattributechangerestate")
+
 
     except Exception as e:
         exit_failure("DELTA TABLE LOAD FAILED", e)
@@ -107,41 +104,46 @@ def run_segmentation_pipeline():
     except Exception as e:
         exit_failure("SEGMENT QUERY FAILED", e)
 
+    # ---------------------------
+    # WRITE SEGMENT TABLE
+    # ---------------------------
+    try:
+        print("STEP 4: Writing Segment Table")
+    
+        abfs_path = "abfss://ucmpsegmentexport@upssynapsedev.dfs.core.windows.net/Table"
+    
+        spark.sql("CREATE SCHEMA IF NOT EXISTS Segmentation")
+    
+        segment_id_clean = segment_id.lower().replace("-", "_")
+    
+        result_table = f"Segmentation.segment_{segment_id_clean}"
+    
+        (
+            df.write
+            .format("delta")
+            .mode("overwrite")
+            .option("path", abfs_path)
+            .saveAsTable(result_table)
+        )
+    
+        print("Table created:", result_table)
+    
+    except Exception as e:
+        exit_failure("SEGMENT TABLE WRITE FAILED", e)
 
     # ---------------------------
     # AUDIENCE COUNT
     # ---------------------------
     try:
-        print("STEP 4: Counting Audience")
-
-        audience_count = df.count()
-
+        print("STEP 5: Counting Audience")
+    
+        audience_count = spark.sql(
+            f"SELECT COUNT(*) AS cnt FROM {result_table}"
+        ).collect()[0]["cnt"]
+    
     except Exception as e:
         exit_failure("AUDIENCE COUNT FAILED", e)
 
-
-    # ---------------------------
-    # WRITE SEGMENT TABLE
-    # ---------------------------
-    try:
-        print("STEP 5: Writing Segment Table")
-
-        spark.sql("CREATE SCHEMA IF NOT EXISTS Segmentation")
-
-        segment_id_clean = segment_id.lower().replace(" ", "_")
-        result_table = f"Segmentation.segment_{segment_id_clean}"
-
-        df.write.mode("overwrite").saveAsTable(result_table)
-
-        # validate write
-        spark.sql(f"SELECT COUNT(*) FROM {result_table}").collect()
-
-    except Exception as e:
-        exit_failure("SEGMENT TABLE WRITE FAILED", e)
-
-
-    # RETURN SUCCESS VALUE
-    return audience_count
 -----------------------------------------------------------
 
 try:
