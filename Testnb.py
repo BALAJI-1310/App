@@ -147,11 +147,19 @@ def run_segmentation_pipeline():
 return audience_count
 
 -----------------------------------------------------------
-
 try:
     audience_count = run_segmentation_pipeline()
     exit_success(audience_count)
 
 except Exception as e:
-    # unexpected python error
+
+    # Synapse throws a Py4JJavaError after notebook.exit()
+    msg = str(e)
+
+    # If our JSON already exists in the exception → notebook already exited correctly
+    if '"IsSuccess"' in msg:
+        raise
+
+    # Only real unexpected python errors reach here
     exit_failure("UNEXPECTED NOTEBOOK FAILURE", e)
+
