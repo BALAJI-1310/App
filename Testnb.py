@@ -26,18 +26,26 @@ def exit_failure(step, err):
     mssparkutils.notebook.exit(json.dumps(result))
 -----------------------------------------------------
 
-
 def run_segmentation_pipeline():
 
     # ---------------------------
     # STORAGE AUTHENTICATION
     # ---------------------------
     try:
-        print("STEP 1: Storage Authentication")
+        inputProps = TokenLibrary.getPropertiesAll(InputLinkedService)
+
+        inputStorageAccountName = (
+            json.loads(inputProps)["Endpoint"]
+            .replace("https://","")
+            .replace(".dfs.core.windows.net/","")
+        )
+
+        # Linked service mapping
+        spark.conf.set("spark.storage.synapse.linkedServiceName", InputLinkedService)
 
         spark.conf.set(
-            f"fs.azure.account.auth.type.{inputStorageAccountName}.dfs.core.windows.net",
-            "LinkedService"
+            f"spark.storage.synapse.{inputStorageAccountName}.dfs.core.windows.net.linkedServiceName",
+            InputLinkedService
         )
 
         spark.conf.set(
@@ -45,15 +53,21 @@ def run_segmentation_pipeline():
             "com.microsoft.azure.synapse.tokenlibrary.LinkedServiceBasedTokenProvider"
         )
 
-        profilePath = f"abfss://{profileContainer}@{inputStorageAccountName}.dfs.core.windows.net/"
-        cdpPath = f"abfss://{cdpContainer}@{inputStorageAccountName}.dfs.core.windows.net/"
+        print("ADLS Config Prepared")
 
-        # 🔴 Force authentication NOW (very important)
-        mssparkutils.fs.ls(profilePath)
+        profileContainer = "commercialmarketing"
+        profileFolder = "dataproducts/connectedmarketingdata/v1/standard/"
+
+        cdpContainer = "cdp"
+        cdpFolder = "dataproducts/ucmp/v1/standard/"
+
+        profilePath = f"abfss://{profileContainer}@{inputStorageAccountName}.dfs.core.windows.net/{profileFolder}"
+        cdpPath = f"abfss://{cdpContainer}@{inputStorageAccountName}.dfs.core.windows.net/{cdpFolder}"
+
+        print("ADLS Authentication Successful")
 
     except Exception as e:
         exit_failure("STORAGE AUTHENTICATION FAILED", e)
-
 
     # ---------------------------
     # LOAD DELTA TABLES
