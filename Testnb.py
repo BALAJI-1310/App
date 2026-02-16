@@ -14,16 +14,48 @@ def exit_success(audience_count):
 
 # ---------- FAILURE EXIT ----------
 def exit_failure(step, err):
-    msg = str(err).split("\n")[0]
+
+    error_message = ""
+
+    try:
+        #  Spark SQL Syntax Error (ParseException)
+        if hasattr(err, "desc") and err.desc:
+            error_message = err.desc
+
+        # Spark Analysis Error (wrong column/table)
+        elif hasattr(err, "java_exception") and err.java_exception:
+            error_message = err.java_exception.getMessage()
+
+        #  Py4J Java bridge errors (ADLS, Delta, permissions)
+        elif "Py4JJavaError" in str(type(err)):
+            error_message = str(err)
+            if "An error occurred while calling" in error_message:
+                # extract the real Java cause
+                parts = error_message.split(":")
+                error_message = parts[-1]
+
+        #  Normal Python error
+        else:
+            error_message = str(err)
+
+    except Exception:
+        error_message = str(err)
+
+    # Clean Spark noise
+    if error_message:
+        error_message = error_message.split("\n")[0]
+        error_message = error_message.replace("org.apache.spark.sql.AnalysisException:", "")
+        error_message = error_message.replace("java.lang.RuntimeException:", "")
+        error_message = error_message.replace("org.apache.hadoop.fs.azurebfs.contracts.exceptions.", "")
 
     result = {
         "IsSuccess": 0,
         "AudienceCount": 0,
-        "ErrorDetails": f"{step}: {msg}"
+        "ErrorDetails": f"{step}: {error_message}"
     }
 
-    print("FAILED:", result)
     mssparkutils.notebook.exit(json.dumps(result))
+
 -----------------------------------------------------
 
 def run_segmentation_pipeline():
