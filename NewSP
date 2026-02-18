@@ -1,106 +1,175 @@
-CREATE OR ALTER PROCEDURE dbo.usp_UpdateRunStatus
+ALTER PROCEDURE dbo.usp_UpdateRunStatus
 (
     @RunId UNIQUEIDENTIFIER,
-    @Status NVARCHAR(50),              -- Completed / Failed / Cancelled
+    @Status NVARCHAR(50),              
     @AudiencesCount BIGINT = NULL,
-    @NB_Error NVARCHAR(MAX) = NULL,    -- Notebook error
-    @PipelineRunId NVARCHAR(100) = NULL
+    @NB_Error NVARCHAR(MAX) = NULL,
+    @PipelineRunId NVARCHAR(100) = NULL,
+    @ResultTableName NVARCHAR(255) = NULL,
+    @ResultFilePath  NVARCHAR(500) = NULL
 )
 AS
 BEGIN
     SET NOCOUNT ON;
+    SET XACT_ABORT ON;
 
     DECLARE 
         @StartedAt DATETIME2,
         @DurationMinutes INT,
         @RowsAffected INT,
-        @FinalError NVARCHAR(MAX);
+        @FinalError NVARCHAR(MAX),
+        @SegmentId UNIQUEIDENTIFIER,
+        @SegmentName NVARCHAR(255);
 
     BEGIN TRY
 
+        BEGIN TRANSACTION;
+
         /* ============================================================
-           1. Fetch Start Time
+           1. Get Run + Segment Info
         ============================================================ */
-        SELECT @StartedAt = StartedAt
-        FROM dbo.SegmentRun
-        WHERE Id = @RunId;
+        SELECT 
+            @StartedAt = sr.StartedAt,
+            @SegmentId = sr.SegmentId
+        FROM dbo.SegmentRun sr
+        WHERE sr.Id = @RunId;
 
-        -- If row doesn't exist -> silently exit
         IF @StartedAt IS NULL
+        BEGIN
+            ROLLBACK;
             RETURN;
+        END
+
+        /* Fetch Segment Name */
+        SELECT @SegmentName = Name
+        FROM dbo.Segment
+        WHERE Id = @SegmentId;
 
         /* ============================================================
-           2. Calculate Duration
+           2. Duration
         ============================================================ */
         SET @DurationMinutes = DATEDIFF(MINUTE, @StartedAt, SYSUTCDATETIME());
 
-        /* ============================================================
-           3. Normalize Audience Count
-        ============================================================ */
         IF @AudiencesCount IS NULL
             SET @AudiencesCount = 0;
 
         /* ============================================================
-           4. Decide Error Message
+           3. Error Message
         ============================================================ */
         IF @Status = 'Failed'
         BEGIN
             IF @NB_Error IS NOT NULL AND LTRIM(RTRIM(@NB_Error)) <> ''
                 SET @FinalError = CONCAT('Notebook: ', LEFT(@NB_Error, 3500));
             ELSE
-                SET @FinalError = 'Notebook: Execution failed without error message.';
+                SET @FinalError = 'Notebook execution failed without error message.';
         END
         ELSE IF @Status = 'Cancelled'
-        BEGIN
             SET @FinalError = 'Pipeline execution was cancelled.';
-        END
         ELSE
-        BEGIN
-            -- Completed
             SET @FinalError = NULL;
-        END
 
         /* ============================================================
-           5. Retry-Safe Update (MOST IMPORTANT PART)
+           4. Close SegmentRun
         ============================================================ */
         UPDATE dbo.SegmentRun
         SET
-            Status          = @Status,
-            CompletedAt     = SYSUTCDATETIME(),
+            Status = @Status,
+            CompletedAt = SYSUTCDATETIME(),
             DurationMinutes = @DurationMinutes,
-            AudiencesCount  = CASE WHEN @Status = 'Completed' THEN @AudiencesCount ELSE 0 END,
-            ErrorDetails    = @FinalError,
-            PipelineRunId   = ISNULL(@PipelineRunId, PipelineRunId)
+            AudiencesCount = CASE WHEN @Status='Completed' THEN @AudiencesCount ELSE 0 END,
+            ErrorDetails = @FinalError,
+            PipelineRunId = ISNULL(@PipelineRunId, PipelineRunId)
         WHERE Id = @RunId
-          AND Status = 'Running';   -- prevents double updates & retries
+          AND Status = 'Running';
 
         SET @RowsAffected = @@ROWCOUNT;
 
-        -- If already updated by retry, exit safely
         IF @RowsAffected = 0
+        BEGIN
+            ROLLBACK;
             RETURN;
+        END
+
+        /* ============================================================
+           5. UPDATE SEGMENT (ONLY WHEN SUCCESS)
+        ============================================================ */
+        IF @Status = 'Completed'
+        BEGIN
+            UPDATE dbo.Segment
+            SET
+                LastRefreshedAt = SYSUTCDATETIME(),
+                AudiencesCount = @AudiencesCount,
+                ResultTableName = @ResultTableName,
+                ResultFilePath = @ResultFilePath,
+                ModifiedAt = SYSUTCDATETIME(),
+                ModifiedBy = 'SYSTEM_PIPELINE'
+            WHERE Id = @SegmentId;
+        END
+
+        /* ============================================================
+           6. INSERT AUDIT LOG
+        ============================================================ */
+
+        DECLARE @Action NVARCHAR(50);
+        DECLARE @Details NVARCHAR(MAX);
+
+        IF @Status='Completed'
+        BEGIN
+            SET @Action = 'RunCompleted';
+            SET @Details = CONCAT('Segment executed successfully. Audience count: ', @AudiencesCount,
+                                  '. Result table: ', ISNULL(@ResultTableName,'N/A'));
+        END
+        ELSE IF @Status='Failed'
+        BEGIN
+            SET @Action = 'RunFailed';
+            SET @Details = ISNULL(@FinalError,'Execution failed.');
+        END
+        ELSE
+        BEGIN
+            SET @Action = 'Cancelled';
+            SET @Details = 'Pipeline execution cancelled.';
+        END
+
+        INSERT INTO dbo.SegmentAuditLog
+        (
+            SegmentId,
+            SegmentName,
+            Action,
+            UserId,
+            UserEmail,
+            Details,
+            Source
+        )
+        VALUES
+        (
+            @SegmentId,
+            ISNULL(@SegmentName,'Unknown Segment'),
+            @Action,
+            'SYSTEM_PIPELINE',
+            'fabric.pipeline@system.local',
+            @Details,
+            'Pipeline'
+        );
+
+        COMMIT;
 
     END TRY
     BEGIN CATCH
 
-        DECLARE @SqlErrorMessage NVARCHAR(MAX);
-        SET @SqlErrorMessage = ERROR_MESSAGE();
+        IF @@TRANCOUNT > 0
+            ROLLBACK;
 
-        /* ============================================================
-           Stored Procedure Failure Logging
-        ============================================================ */
+        DECLARE @SqlErrorMessage NVARCHAR(MAX) = ERROR_MESSAGE();
+
         UPDATE dbo.SegmentRun
         SET
-            Status          = 'Failed',
-            CompletedAt     = SYSUTCDATETIME(),
-            DurationMinutes = DATEDIFF(MINUTE, StartedAt, SYSUTCDATETIME()),
-            ErrorDetails    = CONCAT('SP: ', LEFT(@SqlErrorMessage, 3500)),
-            PipelineRunId   = ISNULL(@PipelineRunId, PipelineRunId)
-        WHERE Id = @RunId
-          AND Status = 'Running';
+            Status='Failed',
+            CompletedAt=SYSUTCDATETIME(),
+            DurationMinutes=DATEDIFF(MINUTE,StartedAt,SYSUTCDATETIME()),
+            ErrorDetails=CONCAT('SP Failure: ',LEFT(@SqlErrorMessage,3500))
+        WHERE Id=@RunId
+          AND Status='Running';
 
-        -- Do NOT throw error back to Synapse
         RETURN;
     END CATCH
 END
-GO
