@@ -61,6 +61,10 @@ export const SegmentsPage: React.FC = () => {
 const [dynamicFilters, setDynamicFilters] = useState<Record<string, any[]>>({});//changes
 const [selectedFilters, setSelectedFilters] = useState<Record<string, string>>({});
 
+
+const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+const [availableColumns, setAvailableColumns] = useState<string[]>([]);
+const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
   // Fetch segments from API
   const fetchSegments = useCallback(async () => {
     setLoading(true);
@@ -96,10 +100,16 @@ useEffect(() => {
   if (segments.length > 0) {
     const filters = generateDynamicFilters(segments);
     setDynamicFilters(filters);
+
+    const cols = Object.keys(filters);
+    setAvailableColumns(cols);
   }
 }, [segments]);
+useEffect(() => {
+  setSelectedColumns(["state", "cycle"]);
+}, []);
 //changes
-  const EXCLUDED_COLUMNS = ["name", "description"];
+  const EXCLUDED_COLUMNS = ["name", "description", "id"];
 
 const getFilterableColumns = (data: any[]) => {
   if (!data || data.length === 0) return [];
@@ -234,6 +244,14 @@ const filteredSegments = segments.filter((row) => {
         <Text as="h1" size={700} weight="semibold" className="segments-page-title">
           Segments
         </Text>
+      <Button
+          appearance="secondary"
+          icon={<Add24Regular />}
+           onClick={() => setIsFilterPanelOpen(true)}
+
+        >
+          Add Filter
+        </Button>
 
         <Button
           appearance="primary"
@@ -288,7 +306,7 @@ const filteredSegments = segments.filter((row) => {
           <Option value="Adhoc">Adhoc</Option>
           <Option value="Recurring">Recurring</Option>
         </Dropdown> */}
-        {Object.keys(dynamicFilters).map((column) => (
+   {selectedColumns.map((column) => (
   <Dropdown
     key={column}
     className="segments-filter-dropdown"
@@ -304,7 +322,7 @@ const filteredSegments = segments.filter((row) => {
   >
     <Option value="">All</Option>
 
-    {dynamicFilters[column].map((val, idx) => (
+    {dynamicFilters[column]?.map((val, idx) => (
       <Option key={idx} value={val}>
         {val}
       </Option>
@@ -491,6 +509,50 @@ const filteredSegments = segments.filter((row) => {
           </div>
         )}
       </Card>
+      {isFilterPanelOpen && (
+  <div className="filter-panel-overlay">
+    <div className="filter-panel">
+      <h3>Select Filters</h3>
+
+      {availableColumns.map((col) => (
+        <div key={col}>
+          <input
+            type="checkbox"
+            checked={selectedColumns.includes(col)}
+  onChange={(e) => {
+  if (e.target.checked) {
+    setSelectedColumns((prev) =>
+      prev.includes(col) ? prev : [...prev, col]
+    );
+  } else {
+    setSelectedColumns((prev) =>
+      prev.filter((c) => c !== col)
+    );
+
+    setSelectedFilters((prev) => {
+      const updated = { ...prev };
+      delete updated[col];
+      return updated;
+    });
+  }
+}}
+          />
+          <label>{col}</label>
+        </div>
+      ))}
+
+      <div style={{ marginTop: "10px" }}>
+        <Button onClick={() => setIsFilterPanelOpen(false)}>
+          Apply
+        </Button>
+
+        <Button onClick={() => setIsFilterPanelOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };
