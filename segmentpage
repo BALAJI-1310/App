@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Filter24Regular, Dismiss24Regular } from "@fluentui/react-icons";
 import { useNavigate } from 'react-router-dom';
 import { useChat } from '@/contexts/ChatContext';
 import {
@@ -534,19 +535,42 @@ const filteredSegments = segments.filter((row) => {
   onOpenChange={(_, data) => setIsFilterPanelOpen(data.open)}
   style={{ width: "320px" }}
 >
-  <DrawerHeader>
-    <DrawerHeaderTitle>Select Filters</DrawerHeaderTitle>
-  </DrawerHeader>
+<DrawerHeader
+  style={{
+    borderBottom: "1px solid #eee",
+    paddingBottom: "12px"
+  }}
+>
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+    
+    {/* Left side: Icon + Title */}
+    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+      <Filter24Regular />
+      <Text weight="semibold">Select Filters</Text>
+    </div>
 
-  <DrawerBody>
+    {/* Right side: Close button */}
+    <Button
+      appearance="subtle"
+      icon={<Dismiss24Regular />}
+      onClick={() => setIsFilterPanelOpen(false)}
+    />
+  </div>
+
+  {/* Subtitle */}
+  <Text size={300} style={{ marginTop: "6px", color: "#666" }}>
+    Select which filters to display in your table.
+  </Text>
+</DrawerHeader>
+  <DrawerBody style={{ overflowY: "auto", maxHeight: "100%" }}>
 
     {/* 🔍 Search */}
-    <Input
-      placeholder="Search filters..."
-      value={filterSearchQuery}
-      onChange={(_, data) => setFilterSearchQuery(data.value)}
-      style={{ marginBottom: "12px" }}
-    />
+<Input
+  placeholder="Search filters..."
+  value={filterSearchQuery}
+  onChange={(_, data) => setFilterSearchQuery(data.value)}
+  style={{ marginBottom: "16px" }}
+/>
 
     {/* ✅ Filter list */}
     {availableColumns
@@ -554,7 +578,19 @@ const filteredSegments = segments.filter((row) => {
         col.toLowerCase().includes(filterSearchQuery.toLowerCase())
       )
       .map((col) => (
-        <div key={col} style={{ marginBottom: "8px" }}>
+ <div
+  key={col}
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "6px 8px",
+    borderRadius: "4px",
+    cursor: "pointer"
+  }}
+  onMouseEnter={(e) => (e.currentTarget.style.background = "#f3f2f1")}
+  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+>
           <input
             type="checkbox"
             checked={tempSelectedColumns.includes(col)}
@@ -570,14 +606,22 @@ const filteredSegments = segments.filter((row) => {
               }
             }}
           />
-          <label style={{ marginLeft: "8px" }}>
+          <Text>
             {col.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}
-          </label>
+          </Text>
         </div>
       ))}
   </DrawerBody>
 
-  <DrawerFooter>
+  <DrawerFooter
+  style={{
+    borderTop: "1px solid #eee",
+    paddingTop: "12px",
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "8px"
+  }}
+>
     <Button
       appearance="primary"
       onClick={() => {
