@@ -111,8 +111,8 @@ useEffect(() => {
     const filters = generateDynamicFilters(segments);
     setDynamicFilters(filters);
 
-    const cols = Object.keys(filters);
-    setAvailableColumns(cols);
+const cols = Object.keys(segments[0] || {}).filter((k) => k !== "id");
+setAvailableColumns(cols);
   }
 }, [segments]);
 // useEffect(() => {
@@ -381,7 +381,7 @@ const filteredSegments = segments.filter((row) => {
           </div>
         ) : sortedSegments.length > 0 ? (
           <>
-            <Table className="segments-table" aria-label="Segments list">
+            <Table className="segments-table" aria-label="Segments list" style={{ minWidth: "1200px" }}>
               {/* <TableHeader>
                 <TableRow>
                   <TableHeaderCell>
@@ -466,9 +466,36 @@ const filteredSegments = segments.filter((row) => {
         : Object.keys(segment).filter((k) => k !== "id")
       ).map((key) => (
         <TableCell key={key}>
-          <TableCellLayout>
-            {(segment as any)[key]?.toString() || "-"}
-          </TableCellLayout>
+         <TableCellLayout style={{ minWidth: "150px" }}>
+  {key === "name" ? (
+    <span
+      className="segment-name-cell"
+      onClick={() => handleSegmentClick(segment.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleSegmentClick(segment.id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      style={{
+        cursor: "pointer",
+        color: "#0f6cbd",
+        fontWeight: 500,
+      }}
+    >
+      {segment.name}
+    </span>
+  ) : key === "state" ? (
+    renderStateBadge(segment.state)
+  ) : key === "cycle" ? (
+    renderCycleBadge(segment.cycle)
+  ) : key.toLowerCase().includes("date") ? (
+    formatDate((segment as any)[key])
+  ) : (
+    (segment as any)[key]?.toString() || "-"
+  )}
+</TableCellLayout>
         </TableCell>
       ))}
     </TableRow>
