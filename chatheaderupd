@@ -1,0 +1,68 @@
+import React, { useCallback, memo } from 'react';
+import {
+  Button,
+  Text,
+} from '@fluentui/react-components';
+import { Delete24Regular, ArrowSync24Regular } from '@fluentui/react-icons';
+import { useChat } from '@/contexts/ChatContext';
+import '@/styles/ChatHeader.css';
+
+// Memoized icon components to prevent re-renders
+const RefreshIcon = memo(() => <ArrowSync24Regular />);
+const DeleteIcon = memo(() => <Delete24Regular />);
+
+export const ChatHeader: React.FC = () => {
+  const { clearChat, initializeChat, isBackendUp, isInitializing } = useChat();
+
+  // Memoize handlers
+  const handleRefresh = useCallback(() => {
+    initializeChat();
+  }, [initializeChat]);
+
+  const handleClearChat = useCallback(() => {
+    clearChat();
+  }, [clearChat]);
+  
+const badgeState = isBackendUp ? 'online' : 'offline';
+const badgeText = isBackendUp ? 'Active Session' : 'Backend Offline';
+
+  return (
+    <div className="chat-header">
+      <div className="chat-header-left">
+        <Text weight="semibold" size={400}>
+          UCMP Data Agent
+        </Text>
+        {!isInitializing && (
+          <span
+            className={`session-badge ${badgeState}`}
+            role="status"
+            aria-live="polite"
+            aria-label={badgeText}
+          >
+            {badgeText}
+          </span>
+        )}
+      </div>
+
+      <div className="chat-header-right">
+        <Button
+          appearance="subtle"
+          icon={<RefreshIcon />}
+          onClick={handleRefresh}
+          aria-label="Refresh session"
+          title="Refresh session"
+          className="chat-icon-btn"
+        />
+
+        <Button
+          appearance="subtle"
+          icon={<DeleteIcon />}
+          onClick={handleClearChat}
+          aria-label="Clear chat"
+          title="Clear chat"
+          className="chat-icon-btn"
+        />
+      </div>
+    </div>
+  );
+};
