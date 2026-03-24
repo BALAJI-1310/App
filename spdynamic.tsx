@@ -1,76 +1,3 @@
-
-.segments-table {
-  width: 100%;
-  min-width: 1400px;              /* ensures horizontal scroll */
-  table-layout: fixed;            /* prevents column collapsing */
-  border-collapse: separate;
-}
-
-
-.segments-table th {
-  padding: 12px 16px;
-  background-color: #fafafa;
-  font-weight: 600;
-  text-align: left;
-
-  white-space: nowrap;            /* prevent wrapping */
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  min-width: 180px;               /* FIX: prevent merging */
-}
-
-
-.segments-table td {
-  padding: 12px 16px;
-  text-align: left;
-
-  white-space: nowrap;            /* FIX: no wrapping */
-  overflow: hidden;
-  text-overflow: ellipsis;
-
-  min-width: 180px;               /* FIX: column width */
-}
-
-
-.segments-table-container {
-  overflow-x: auto;               /* horizontal scroll */
-  width: 100%;
-}
-
-
-.segment-name-cell {
-  color: #0f6cbd;
-  cursor: pointer;
-  font-weight: 500;
-}
-
-.segment-name-cell:hover {
-  text-decoration: underline;
-}
-
-
-.sortable-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  cursor: pointer;
-}
-
-
-.status-badge,
-.cycle-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-
-.segments-table tbody tr:hover {
-  background-color: #f5f5f5;
-}
----------------------------------------
-
   import React, { useState, useEffect, useCallback } from 'react';
 import { Filter24Regular, Dismiss24Regular } from "@fluentui/react-icons";
 import { useNavigate } from 'react-router-dom';
@@ -144,9 +71,11 @@ const [selectedFilters, setSelectedFilters] = useState<Record<string, string>>({
 
 
 const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+const [isColumnPanelOpen, setIsColumnPanelOpen] = useState(false);
 const [availableColumns, setAvailableColumns] = useState<string[]>([]);
 const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
 const [tempSelectedColumns, setTempSelectedColumns] = useState<string[]>([]);
+const [tempSelectedFilters, setTempSelectedFilters] = useState<string[]>([]);
 const [filterSearchQuery, setFilterSearchQuery] = useState("");
   // Fetch segments from API
   const fetchSegments = useCallback(async () => {
@@ -193,7 +122,15 @@ setAvailableColumns(cols);
 // }, []);
 useEffect(() => {
   if (availableColumns.length > 0) {
-    setSelectedColumns(availableColumns);
+    const defaultCols = [
+      "name",
+      "description",
+      "state",
+      "cycle",
+      "recurrence",
+    ];
+
+    setSelectedColumns(defaultCols.filter(col => availableColumns.includes(col)));
   }
 }, [availableColumns]);
 //changes
@@ -226,6 +163,22 @@ const filteredSegments = segments.filter((row) => {
     return row[col] === selectedFilters[col];
   });
 });
+const allColumns = React.useMemo(() => {
+  if (!segments || segments.length === 0) return [];
+
+  const keys = new Set<string>();
+
+  segments.forEach((item) => {
+    Object.keys(item).forEach((k) => {
+      if (k !== "id") keys.add(k);
+    });
+  });
+
+  return Array.from(keys);
+}, [segments]); 
+
+const columnsToRender =
+  selectedColumns.length > 0 ? selectedColumns : allColumns;
 
   // Client-side sorting for the combined data
   // const sortedSegments = [...filteredSegments].sort((a, b) => {
@@ -350,18 +303,34 @@ const filteredSegments = segments.filter((row) => {
   </Text>
 
   <div className="segments-header-actions">
-    <Button
-      appearance="primary"
-      icon={<Add24Regular />}
-      onClick={() => {
-        setTempSelectedColumns(selectedColumns);
-        setIsFilterPanelOpen(true);
-      }}
-    >
-      Add Filter
-    </Button>
+    {/* ✅ Add Columns */}
+{/* ✅ Add Columns */}
+<Button
+  appearance="primary"
+  icon={<Filter24Regular />}
+  onClick={() => {
+  setFilterSearchQuery(""); // ✅ ADD THIS
+  setTempSelectedColumns(
+    selectedColumns.length ? selectedColumns : availableColumns
+  );
+  setIsColumnPanelOpen(true);
+}}
+>
+  Add Columns
+</Button>
 
-    <Button
+{/* ✅ Add Filter */}
+<Button
+  appearance="primary"
+  icon={<Add24Regular />}
+  onClick={() => {
+  setFilterSearchQuery(""); // ✅ ADD THIS
+  setTempSelectedFilters(Object.keys(selectedFilters));
+  setIsFilterPanelOpen(true);
+}}
+>
+  Add Filter
+</Button>    <Button
       appearance="primary"
       icon={<Add24Regular />}
       onClick={() => {
@@ -504,10 +473,7 @@ const filteredSegments = segments.filter((row) => {
               </TableHeader> */}
               <TableHeader>
   <TableRow>
-    {(selectedColumns.length > 0
-      ? selectedColumns
-      : Object.keys(segments[0] || {}).filter((k) => k !== "id")
-    ).map((key) => (
+    {columnsToRender.map((key) => (
       <TableHeaderCell  key={key}  style={{    minWidth: "180px",    whiteSpace: "nowrap"  }}>
         <span
           className="sortable-header"
@@ -534,10 +500,7 @@ const filteredSegments = segments.filter((row) => {
               <TableBody>
   {sortedSegments.map((segment) => (
     <TableRow key={segment.id}>
-      {(selectedColumns.length > 0
-        ? selectedColumns
-        : Object.keys(segment).filter((k) => k !== "id")
-      ).map((key) => (
+      {columnsToRender.map((key) => (
         <TableCell key={key}>
 <TableCellLayout  style={{    minWidth: "180px",    whiteSpace: "nowrap",    overflow: "hidden",    textOverflow: "ellipsis"  }}>
     {key === "name" ? (
@@ -685,7 +648,7 @@ const filteredSegments = segments.filter((row) => {
 />
 
     {/* ✅ Filter list */}
-    {availableColumns
+    {Object.keys(dynamicFilters)
       .filter((col) =>
         col.toLowerCase().includes(filterSearchQuery.toLowerCase())
       )
@@ -705,18 +668,18 @@ const filteredSegments = segments.filter((row) => {
 >
           <input
             type="checkbox"
-            checked={tempSelectedColumns.includes(col)}
+            checked={tempSelectedFilters.includes(col)}
             onChange={(e) => {
-              if (e.target.checked) {
-                setTempSelectedColumns((prev) =>
-                  prev.includes(col) ? prev : [...prev, col]
-                );
-              } else {
-                setTempSelectedColumns((prev) =>
-                  prev.filter((c) => c !== col)
-                );
-              }
-            }}
+  if (e.target.checked) {
+    setTempSelectedFilters((prev) =>
+      prev.includes(col) ? prev : [...prev, col]
+    );
+  } else {
+    setTempSelectedFilters((prev) =>
+      prev.filter((c) => c !== col)
+    );
+  }
+}}
           />
           <Text size ={400}>
             {col.replace(/([A-Z])/g, " $1").replace(/^./, str => str.toUpperCase())}
@@ -736,26 +699,135 @@ const filteredSegments = segments.filter((row) => {
 >
     <Button
       appearance="primary"
-      onClick={() => {
-        setSelectedColumns(tempSelectedColumns);
+     onClick={() => {
+  setSelectedFilters((prev) => {
+    const updated: Record<string, string> = {};
 
-        setSelectedFilters((prev) => {
-          const updated = { ...prev };
-          Object.keys(updated).forEach((key) => {
-            if (!tempSelectedColumns.includes(key)) {
-              delete updated[key];
-            }
-          });
-          return updated;
-        });
+    tempSelectedFilters.forEach((key) => {
+      updated[key] = prev[key] || "";
+    });
 
-        setIsFilterPanelOpen(false);
-      }}
+    return updated;
+  });
+
+  setIsFilterPanelOpen(false);
+}}
     >
       Apply
     </Button>
 
     <Button onClick={() => setIsFilterPanelOpen(false)}>
+      Cancel
+    </Button>
+  </DrawerFooter>
+</Drawer>
+<Drawer
+  open={isColumnPanelOpen}
+  position="end"
+  modalType="modal"
+  onOpenChange={(_, data) => setIsColumnPanelOpen(data.open)}
+  style={{ width: "320px" }}
+>
+  {/* Header */}
+  <DrawerHeader
+    style={{
+      borderBottom: "1px solid #eee",
+      paddingBottom: "12px"
+    }}
+  >
+    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      
+      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        <Filter24Regular />
+        <Text weight="semibold">Select Columns</Text>
+      </div>
+
+      <Button
+        appearance="subtle"
+        icon={<Dismiss24Regular />}
+        onClick={() => setIsColumnPanelOpen(false)}
+      />
+    </div>
+
+    <Text size={300} style={{ marginTop: "6px", color: "#666" }}>
+      Select which columns to display in your table.
+    </Text>
+  </DrawerHeader>
+
+  {/* Body */}
+  <DrawerBody style={{ overflowY: "auto", maxHeight: "100%" }}>
+
+    {/* Search */}
+    <Input
+      placeholder="Search columns..."
+      value={filterSearchQuery}
+      onChange={(_, data) => setFilterSearchQuery(data.value)}
+      style={{ marginBottom: "16px" }}
+    />
+
+    {/* Column list */}
+    {availableColumns
+      .filter((col) =>
+        col.toLowerCase().includes(filterSearchQuery.toLowerCase())
+      )
+      .map((col) => (
+        <div
+          key={col}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "10px",
+            padding: "6px 8px",
+            borderRadius: "4px",
+            cursor: "pointer"
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "#f3f2f1")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >
+          <input
+            type="checkbox"
+            checked={tempSelectedColumns.includes(col)}
+            onChange={(e) => {
+              if (e.target.checked) {
+                setTempSelectedColumns((prev) =>
+                  prev.includes(col) ? prev : [...prev, col]
+                );
+              } else {
+                setTempSelectedColumns((prev) =>
+                  prev.filter((c) => c !== col)
+                );
+              }
+            }}
+          />
+
+          <Text>
+            {col.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase())}
+          </Text>
+        </div>
+      ))}
+  </DrawerBody>
+
+  {/* Footer */}
+  <DrawerFooter
+    style={{
+      borderTop: "1px solid #eee",
+      paddingTop: "12px",
+      display: "flex",
+      justifyContent: "flex-end",
+      gap: "8px"
+    }}
+  >
+    <Button
+      appearance="primary"
+      onClick={() => {
+        setSelectedColumns(tempSelectedColumns);
+        setIsColumnPanelOpen(false);
+      }}
+    >
+      Apply
+    </Button>
+
+    <Button onClick={() => setIsColumnPanelOpen(false)}>
       Cancel
     </Button>
   </DrawerFooter>
