@@ -113,8 +113,15 @@ useEffect(() => {
     const filters = generateDynamicFilters(segments);
     setDynamicFilters(filters);
 
-const cols = Object.keys(segments[0] || {}).filter((k) => k !== "id");
-setAvailableColumns(cols);
+const keys = new Set<string>();
+
+segments.forEach((item) => {
+  Object.keys(item).forEach((k) => {
+    if (k !== "id") keys.add(k);
+  });
+});
+
+setAvailableColumns(Array.from(keys));
   }
 }, [segments]);
 // useEffect(() => {
