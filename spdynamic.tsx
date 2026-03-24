@@ -128,7 +128,7 @@ setAvailableColumns(Array.from(keys));
 //   setSelectedColumns(["state", "cycle", "createdBy"]);
 // }, []);
 useEffect(() => {
-  if (availableColumns.length > 0) {
+  if (availableColumns.length > 0 && selectedColumns.length === 0) {
     const defaultCols = [
       "name",
       "description",
