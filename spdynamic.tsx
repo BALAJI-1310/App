@@ -81,6 +81,23 @@ const [dateRange, setDateRange] = useState({
   from: "",
   to: ""
 });
+useEffect(() => {
+  const savedColumns = localStorage.getItem("selectedColumns");
+  const savedFilters = localStorage.getItem("selectedFilters");
+  const savedDateRange = localStorage.getItem("dateRange");
+
+  if (savedColumns) {
+    setSelectedColumns(JSON.parse(savedColumns));
+  }
+
+  if (savedFilters) {
+    setSelectedFilters(JSON.parse(savedFilters));
+  }
+
+  if (savedDateRange) {
+    setDateRange(JSON.parse(savedDateRange));
+  }
+}, []);
 
   // Fetch segments from API
   const fetchSegments = useCallback(async () => {
@@ -412,9 +429,11 @@ const columnsToRender =
     type="date"
     placeholder="Start Date"
     value={dateRange.from}
-    onChange={(_, data) =>
-      setDateRange((prev) => ({ ...prev, from: data.value }))
-    }
+      onChange={(_, data) => {
+  const updated = { ...dateRange, from: data.value };
+  setDateRange(updated);
+  localStorage.setItem("dateRange", JSON.stringify(updated));
+}}
   />
 
   <span>to</span>
@@ -423,9 +442,11 @@ const columnsToRender =
     type="date"
     placeholder="End Date"
     value={dateRange.to}
-    onChange={(_, data) =>
-      setDateRange((prev) => ({ ...prev, to: data.value }))
-    }
+    onChange={(_, data) => {
+  const updated = { ...dateRange, to: data.value };
+  setDateRange(updated);
+  localStorage.setItem("dateRange", JSON.stringify(updated));
+}}
   />
 </div>
 
@@ -859,16 +880,17 @@ if (column.toLowerCase().includes("date")) {
 >
     <Button
       appearance="primary"
-     onClick={() => {
-  setSelectedFilters((prev) => {
-    const updated: Record<string, string> = {};
+    onClick={() => {
+  const updated: Record<string, string> = {};
 
-    tempSelectedFilters.forEach((key) => {
-      updated[key] = prev[key] || "";
-    });
-
-    return updated;
+  tempSelectedFilters.forEach((key) => {
+    updated[key] = selectedFilters[key] || "";
   });
+
+  setSelectedFilters(updated);
+
+  // ✅ SAVE TO LOCALSTORAGE
+  localStorage.setItem("selectedFilters", JSON.stringify(updated));
 
   setIsFilterPanelOpen(false);
 }}
@@ -981,6 +1003,7 @@ if (column.toLowerCase().includes("date")) {
       appearance="primary"
       onClick={() => {
         setSelectedColumns(tempSelectedColumns);
+localStorage.setItem("selectedColumns", JSON.stringify(tempSelectedColumns));
         setIsColumnPanelOpen(false);
       }}
     >
