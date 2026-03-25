@@ -46,16 +46,17 @@
   min-height: 0; /* Important for proper scrolling */
 }
 
-.segments-table {
-  width: max-content;
-}
-
 .segments-table th,
 .segments-table td {
-  min-width: 180px;
+  max-width: 180px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-
+.segments-table {
+  table-layout: auto;
+  width: max-content;
+}
 /* Status and Cycle badges */
 .status-badge,
 .cycle-badge {
