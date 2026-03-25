@@ -143,7 +143,7 @@ useEffect(() => {
   }
 }, [availableColumns]);
 //changes
-  const EXCLUDED_COLUMNS = ["name", "description", "id"];
+  const EXCLUDED_COLUMNS = ["name", "description", "id", "isRunning"];
 
 const getFilterableColumns = (data: any[]) => {
   if (!data || data.length === 0) return [];
@@ -393,30 +393,54 @@ const columnsToRender =
           <Option value="Adhoc">Adhoc</Option>
           <Option value="Recurring">Recurring</Option>
         </Dropdown> */}
-   {Object.keys(dynamicFilters).map((column) => (
-  <Dropdown
-    key={column}
-    className="segments-filter-dropdown"
-    placeholder={column}
-    value={selectedFilters[column] || ""}
-    onOptionSelect={(_, data) => {
-      setSelectedFilters((prev) => ({
-        ...prev,
-        [column]: data.optionValue || "",
-      }));
-      setCurrentPage(1);
-    }}
-  >
-    <Option value="">All</Option>
+  {Object.keys(dynamicFilters)
+  .filter((column) => selectedFilters.hasOwnProperty(column))
+  .map((column) => {
 
-    {dynamicFilters[column]?.map((val, idx) => (
-      <Option key={idx} value={val}>
-        {val}
-      </Option>
-    ))}
-  </Dropdown>
-))}
-      </div>
+    const isDateField =
+      column.toLowerCase().includes("date") ||
+      column.toLowerCase().includes("time");
+
+    if (isDateField) {
+      return (
+        <Input
+          key={column}
+          type="date"
+          className="segments-filter-dropdown"
+          value={selectedFilters[column] || ""}
+          onChange={(_, data) => {
+            setSelectedFilters((prev) => ({
+              ...prev,
+              [column]: data.value,
+            }));
+          }}
+        />
+      );
+    }
+
+    return (
+      <Dropdown
+        key={column}
+        className="segments-filter-dropdown"
+        placeholder={column}
+        value={selectedFilters[column] || ""}
+        onOptionSelect={(_, data) => {
+          setSelectedFilters((prev) => ({
+            ...prev,
+            [column]: data.optionValue || "",
+          }));
+        }}
+      >
+        <Option value="">All</Option>
+
+        {dynamicFilters[column]?.map((val, idx) => (
+          <Option key={idx} value={val}>
+            {val}
+          </Option>
+        ))}
+      </Dropdown>
+    );
+  })}    </div>
 
       <Card className="segments-table-container" style={{ overflowX: 'auto',width: "100%" }}>
         {loading ? (
