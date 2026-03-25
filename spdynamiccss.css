@@ -48,7 +48,6 @@
 
 .segments-table th,
 .segments-table td {
-  max-width: 120px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
