@@ -486,7 +486,7 @@ const columnsToRender =
       <TableHeaderCell
   key={key}
   style={{
-    maxWidth: "180px",
+    maxWidth: "50px",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis"
@@ -521,7 +521,7 @@ const columnsToRender =
         <TableCell key={key}>
 <TableCellLayout
   style={{
-    maxWidth: "180px",
+    maxWidth: "50px",
     whiteSpace: "nowrap",
     overflow: "hidden",
     whiteSpace: "nowrap",
@@ -558,7 +558,7 @@ const columnsToRender =
     <span
   style={{
     display: "inline-block",
-    maxWidth: "180px",
+    maxWidth: "50px",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap"
