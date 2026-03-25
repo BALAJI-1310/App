@@ -133,7 +133,9 @@ useEffect(() => {
       "name",
       "description",
       "state",
+      "nextScheduledDateTime",
       "cycle",
+      "audiencesCount",
       "recurrence",
     ];
 
