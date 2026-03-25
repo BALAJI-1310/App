@@ -485,10 +485,15 @@ const columnsToRender =
               <TableHeader>
   <TableRow>
     {columnsToRender.map((key) => (
-      <TableHeaderCell
+     <TableHeaderCell
   key={key}
   style={{
-    maxWidth: "120px",
+    maxWidth:
+      key === "name"
+        ? "220px"
+        : key === "description"
+        ? "260px"
+        : "120px",
     whiteSpace: "nowrap",
     overflow: "hidden",
     textOverflow: "ellipsis"
@@ -523,8 +528,12 @@ const columnsToRender =
         <TableCell key={key}>
 <TableCellLayout
   style={{
-    maxWidth: "120px",
-    whiteSpace: "nowrap",
+    maxWidth:
+      key === "name"
+        ? "220px"
+        : key === "description"
+        ? "260px"
+        : "120px",
     overflow: "hidden",
     whiteSpace: "nowrap",
     textOverflow: "ellipsis"
@@ -557,10 +566,15 @@ const columnsToRender =
   ) : key.toLowerCase().includes("date") ? (
     formatDate((segment as any)[key])
   ) : (
-    <span
+<span
   style={{
     display: "inline-block",
-    maxWidth: "120px",
+    maxWidth:
+      key === "name"
+        ? "220px"
+        : key === "description"
+        ? "260px"
+        : "120px",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap"
