@@ -77,6 +77,7 @@ const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
 const [tempSelectedColumns, setTempSelectedColumns] = useState<string[]>([]);
 const [tempSelectedFilters, setTempSelectedFilters] = useState<string[]>([]);
 const [filterSearchQuery, setFilterSearchQuery] = useState("");
+
   // Fetch segments from API
   const fetchSegments = useCallback(async () => {
     setLoading(true);
@@ -168,8 +169,24 @@ const generateDynamicFilters = (data: any[]) => {
 
 const filteredSegments = segments.filter((row) => {
   return Object.keys(selectedFilters).every((col) => {
-    if (!selectedFilters[col]) return true;
-    return row[col] === selectedFilters[col];
+    const filterValue = selectedFilters[col];
+    if (!filterValue) return true;
+
+    const cellValue = row[col];
+
+    // ✅ DATE FIX (timezone safe)
+    if (col.toLowerCase().includes("date")) {
+      const cellDate = new Date(cellValue);
+      const filterDate = new Date(filterValue);
+
+      return (
+        cellDate.getFullYear() === filterDate.getFullYear() &&
+        cellDate.getMonth() === filterDate.getMonth() &&
+        cellDate.getDate() === filterDate.getDate()
+      );
+    }
+
+    return cellValue === filterValue;
   });
 });
 const allColumns = React.useMemo(() => {
@@ -397,10 +414,39 @@ const columnsToRender =
   .filter((column) => selectedFilters.hasOwnProperty(column))
   .map((column) => {
 
-    const isDateField =
-      column.toLowerCase().includes("date") ||
-      column.toLowerCase().includes("time");
+if (column.toLowerCase().includes("time")) {
+  return (
+    <Input
+      key={column}
+      type="datetime-local"   // ✅ IMPORTANT
+      className="segments-filter-dropdown"
+      value={selectedFilters[column] || ""}
+      onChange={(_, data) => {
+        setSelectedFilters((prev) => ({
+          ...prev,
+          [column]: data.value,
+        }));
+      }}
+    />
+  );
+}
 
+if (column.toLowerCase().includes("date")) {
+  return (
+    <Input
+      key={column}
+      type="date"
+      className="segments-filter-dropdown"
+      value={selectedFilters[column] || ""}
+      onChange={(_, data) => {
+        setSelectedFilters((prev) => ({
+          ...prev,
+          [column]: data.value,
+        }));
+      }}
+    />
+  );
+}
     if (isDateField) {
       return (
         <Input
