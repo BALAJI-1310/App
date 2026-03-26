@@ -7,6 +7,7 @@ import {
   Text,
   Input,
   Button,
+  Tooltip ,
   Table,
   TableHeader,
   TableRow,
@@ -411,6 +412,7 @@ const columnsToRender =
     setIsFilterPanelOpen(true);
   }}
 /> */}
+
    <Button
       appearance="primary"
       icon={<Add24Regular />}
@@ -424,22 +426,26 @@ const columnsToRender =
   </div>
 </div>
 <div className="segments-filters">
+  
+  <Tooltip content="Edit Columns" relationship="label">
   <Button
     appearance="subtle"
-    icon={<Filter24Regular />}
+    icon={<Add24Regular />}
     onClick={() => {
       setFilterSearchQuery("");
       setTempSelectedFilters(Object.keys(selectedFilters));
       setIsFilterPanelOpen(true);
     }}
-  >
+  />
     
-  </Button>
-
   
+    </Tooltip>
+    
+
+  <Tooltip content="Add Filters" relationship="label">
   <Button
     appearance="subtle"
-    icon={<Add24Regular />}
+    icon={<Filter24Regular />}
     onClick={() => {
       setFilterSearchQuery("");
       setTempSelectedColumns(
@@ -447,9 +453,9 @@ const columnsToRender =
       );
       setIsColumnPanelOpen(true);
     }}
-  >
-    </Button>
-
+  />
+    
+</Tooltip>
 
   <Input
     className="segments-search"
