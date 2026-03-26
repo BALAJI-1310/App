@@ -23,6 +23,7 @@ import {
   DrawerBody,
   DrawerFooter,
 } from '@fluentui/react-components';
+import { DatePicker } from "@fluentui/react-datepicker-compat";
 import {
   Popover,
   PopoverTrigger,
@@ -86,6 +87,13 @@ const [dateRange, setDateRange] = useState({
   from: "",
   to: ""
 });
+
+const isDateTimeColumn = (col: string) =>
+  col.toLowerCase().includes("time");
+
+const isDateColumn = (col: string) =>
+  col.toLowerCase().includes("date") && !isDateTimeColumn(col);
+
 useEffect(() => {
   const savedColumns = localStorage.getItem("selectedColumns");
   const savedFilters = localStorage.getItem("selectedFilters");
@@ -199,17 +207,22 @@ const filteredSegments = segments.filter((row) => {
 
     const cellValue = row[col];
 
-    // ✅ DATE EQUALITY (for other date filters)
-    if (col.toLowerCase().includes("date")) {
-      const cellDate = new Date(cellValue);
-      const filterDate = new Date(filterValue);
+    // ✅ DATE ONLY (ignore time)
+if (isDateColumn(col)) {
+  const cellDate = new Date(cellValue);
+  const filterDate = new Date(filterValue);
 
-      return (
-        cellDate.getFullYear() === filterDate.getFullYear() &&
-        cellDate.getMonth() === filterDate.getMonth() &&
-        cellDate.getDate() === filterDate.getDate()
-      );
-    }
+  return (
+    cellDate.getFullYear() === filterDate.getFullYear() &&
+    cellDate.getMonth() === filterDate.getMonth() &&
+    cellDate.getDate() === filterDate.getDate()
+  );
+}
+
+// ✅ DATETIME (full comparison)
+if (isDateTimeColumn(col)) {
+  return new Date(cellValue).getTime() === new Date(filterValue).getTime();
+}
 
     return cellValue === filterValue;
   });
@@ -433,7 +446,7 @@ const columnsToRender =
       <PopoverTrigger disableButtonEnhancement>
         <Button
   appearance="outline"
-  onClick={(e) => e.stopPropagation()}
+  // onClick={(e) => e.stopPropagation()}
 >
   Date | {dateRange.from || "?"} → {dateRange.to || "?"}
 
@@ -487,28 +500,32 @@ const columnsToRender =
   {/* OTHER FILTER CHIPS */}
   {Object.keys(selectedFilters).map((col) => {
     const value = selectedFilters[col];
-    if (!value) return null;
+    
 
     return (
       <Popover key={col}>
         <PopoverTrigger disableButtonEnhancement>
         <Button
   appearance="outline"
-  onClick={(e) => e.stopPropagation()}
+  // onClick={(e) => e.stopPropagation()}
 >
   {col} | {value}
 
   <span
     style={{ marginLeft: "6px", cursor: "pointer" }}
     onClick={(e) => {
-      e.stopPropagation();
-      setSelectedFilters((prev) => {
-        const updated = { ...prev };
-        delete updated[col];
-        localStorage.setItem("selectedFilters", JSON.stringify(updated));
-        return updated;
-      });
-    }}
+  e.stopPropagation();
+
+  setSelectedFilters((prev) => {
+    const updated = {
+      ...prev,
+      [col]: ""
+    };
+
+    localStorage.setItem("selectedFilters", JSON.stringify(updated));
+    return updated;
+  });
+}}
   >
     ✕
   </span>
@@ -517,22 +534,50 @@ const columnsToRender =
 
         <PopoverSurface style={{ padding: "12px", width: "220px" }}>
           <Text weight="semibold">Filter by {col}</Text>
+{/* ✅ DATE FILTER */}
+{isDateColumn(col) && (
+  <DatePicker
+    value={value ? new Date(value) : undefined}
+    onSelectDate={(date) => {
+      setSelectedFilters((prev) => ({
+        ...prev,
+        [col]: date ? date.toISOString().split("T")[0] : "",
+      }));
+    }}
+  />
+)}
 
-          {dynamicFilters[col]?.map((val) => (
-            <div key={val} style={{ marginTop: "6px" }}>
-              <input
-                type="radio"
-                checked={value === val}
-                onChange={() => {
-                  setSelectedFilters((prev) => ({
-                    ...prev,
-                    [col]: val,
-                  }));
-                }}
-              />
-              <span style={{ marginLeft: "6px" }}>{val}</span>
-            </div>
-          ))}
+{/* ✅ DATETIME FILTER */}
+{isDateTimeColumn(col) && (
+  <Input
+    type="datetime-local"
+    value={value || ""}
+    onChange={(_, d) => {
+      setSelectedFilters((prev) => ({
+        ...prev,
+        [col]: d.value,
+      }));
+    }}
+  />
+)}
+
+{/* ✅ NORMAL FILTER */}
+{!isDateColumn(col) && !isDateTimeColumn(col) &&
+  dynamicFilters[col]?.map((val) => (
+    <div key={val} style={{ marginTop: "6px" }}>
+      <input
+        type="radio"
+        checked={value === val}
+        onChange={() => {
+          setSelectedFilters((prev) => ({
+            ...prev,
+            [col]: val,
+          }));
+        }}
+      />
+      <span style={{ marginLeft: "6px" }}>{val}</span>
+    </div>
+  ))}
 
           <Button
             appearance="primary"
@@ -885,27 +930,13 @@ const columnsToRender =
 >
     <Button
       appearance="primary"
-   onClick={() => {
+  onClick={() => {
   const updated: Record<string, string> = {};
 
   tempSelectedFilters.forEach((key) => {
-    let value = selectedFilters[key];
-
-    // ✅ if no existing value, fallback
-    if (!value) {
-      const options = dynamicFilters[key];
-
-      if (options && options.length > 0) {
-        value = options[0];
-      } else {
-        value = "All"; // ✅ fallback fallback
-      }
-    }
-
-    updated[key] = value;
+    // ✅ NO DEFAULT VALUE
+    updated[key] = selectedFilters[key] || "";
   });
-
-  console.log("FINAL UPDATED:", updated); // 🔍 debug
 
   setSelectedFilters(updated);
 
