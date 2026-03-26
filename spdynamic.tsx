@@ -23,7 +23,7 @@ import {
   DrawerBody,
   DrawerFooter,
 } from '@fluentui/react-components';
-
+import { DatePicker } from "@fluentui/react-datepicker-compat";
 import {
   Popover,
   PopoverTrigger,
@@ -391,7 +391,7 @@ const columnsToRender =
   <div className="segments-header-actions">
   
 
-<Button
+{/* <Button
   appearance="subtle"
   icon={<Filter24Regular />}
   onClick={() => {
@@ -411,7 +411,7 @@ const columnsToRender =
     setTempSelectedFilters(Object.keys(selectedFilters));
     setIsFilterPanelOpen(true);
   }}
-/>
+/> */}
    <Button
       appearance="primary"
       icon={<Add24Regular />}
@@ -425,6 +425,32 @@ const columnsToRender =
   </div>
 </div>
 <div className="segments-filters">
+  <Button
+    appearance="subtle"
+    onClick={() => {
+      setFilterSearchQuery("");
+      setTempSelectedFilters(Object.keys(selectedFilters));
+      setIsFilterPanelOpen(true);
+    }}
+  >
+    <FontAwesomeIcon icon={byPrefixAndName.fas["filter"]} />
+  </Button>
+
+  
+  <Button
+    appearance="subtle"
+    icon={<Add24Regular />}
+    onClick={() => {
+      setFilterSearchQuery("");
+      setTempSelectedColumns(
+        selectedColumns.length ? selectedColumns : availableColumns
+      );
+      setIsColumnPanelOpen(true);
+    }}
+  >
+    </Button>
+
+
   <Input
     className="segments-search"
     placeholder="Search by name or description..."
