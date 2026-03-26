@@ -426,13 +426,14 @@ const columnsToRender =
 <div className="segments-filters">
   <Button
     appearance="subtle"
+    icon={<Filter24Regular />}
     onClick={() => {
       setFilterSearchQuery("");
       setTempSelectedFilters(Object.keys(selectedFilters));
       setIsFilterPanelOpen(true);
     }}
   >
-    <FontAwesomeIcon icon={byPrefixAndName.fas["filter"]} />
+    
   </Button>
 
   
