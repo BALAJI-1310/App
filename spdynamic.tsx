@@ -885,16 +885,20 @@ const columnsToRender =
 >
     <Button
       appearance="primary"
-    onClick={() => {
+   onClick={() => {
   const updated: Record<string, string> = {};
 
   tempSelectedFilters.forEach((key) => {
-    updated[key] = selectedFilters[key] ?? dynamicFilters[key]?.[0] ?? "";
+    // ✅ assign FIRST AVAILABLE VALUE
+    const firstValue = dynamicFilters[key]?.[0];
+
+    if (firstValue) {
+      updated[key] = firstValue;
+    }
   });
 
   setSelectedFilters(updated);
 
-  // ✅ SAVE TO LOCALSTORAGE
   localStorage.setItem("selectedFilters", JSON.stringify(updated));
 
   setIsFilterPanelOpen(false);
