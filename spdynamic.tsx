@@ -538,7 +538,7 @@ const columnsToRender =
       </PopoverSurface>
     </Popover>
   )}
-
+  
   {/* OTHER FILTER CHIPS */}
   {Object.keys(selectedFilters)
   .filter((col) => col !== "dateRange") // ✅ correct fix
