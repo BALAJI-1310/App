@@ -450,7 +450,10 @@ const columnsToRender =
   icon={<Filter24Regular />}
   onClick={() => {
     setFilterSearchQuery("");
-    setTempSelectedFilters(Object.keys(selectedFilters));
+    setTempSelectedFilters([
+  ...Object.keys(selectedFilters),
+  ...(dateRange.from || dateRange.to ? ["dateRange"] : [])
+]);
     setIsFilterPanelOpen(true);
   }}
 />  
@@ -538,7 +541,7 @@ const columnsToRender =
 
   {/* OTHER FILTER CHIPS */}
   {Object.keys(selectedFilters)
-  .filter((col))
+  .filter((col) => col !== "dateRange") // ✅ correct fix
   .map((col) => {
     const value = selectedFilters[col];
     
