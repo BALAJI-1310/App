@@ -1,3 +1,8 @@
+.filter-row:hover {
+  background-color: var(--colorNeutralBackground1Hover);
+}
+-------------
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Filter24Regular, Dismiss24Regular } from "@fluentui/react-icons";
 import { useNavigate } from 'react-router-dom';
