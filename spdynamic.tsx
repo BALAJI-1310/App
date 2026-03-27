@@ -709,16 +709,17 @@ const columnsToRender =
     textOverflow: "ellipsis"
   }}
 >
-        <span
-          className="sortable-header"
-          onClick={() => handleSort(key)}
-          style={{
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "4px",
-          }}
-        >
+ <span
+  className="sortable-header"
+  onClick={() => handleSort(key)}
+  style={{
+    cursor: "pointer",
+    display: "flex",
+    alignItems: "center",
+    gap: "4px",
+    fontWeight: "600"   
+  }}
+>
          {
   key === "nextScheduledDateTime"
     ? "Next Scheduled"
@@ -796,16 +797,40 @@ const columnsToRender =
   {(segment as any)[key]?.toString() || "-"}
 </span>
   )} */}
-  {(() => {
+ {key === "name" ? (
+  <Tooltip content={segment.name} relationship="label">
+    <span
+      className="segment-name-cell"
+      onClick={() => handleSegmentClick(segment.id)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          handleSegmentClick(segment.id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      style={{
+        cursor: "pointer",
+        color: "#0f6cbd",
+        fontWeight: 500,
+        display: "inline-block",
+        maxWidth: "220px",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        whiteSpace: "nowrap"
+      }}
+    >
+      {segment.name}
+    </span>
+  </Tooltip>
+) : key === "state" ? (
+  renderStateBadge(segment.state)
+) : key === "cycle" ? (
+  renderCycleBadge(segment.cycle)
+) : (() => {
   let displayValue = "";
 
-  if (key === "name") {
-    displayValue = segment.name;
-  } else if (key === "state") {
-    return renderStateBadge(segment.state); // keep as is (no tooltip needed)
-  } else if (key === "cycle") {
-    return renderCycleBadge(segment.cycle); // keep as is
-  } else if (key.toLowerCase().includes("date")) {
+  if (key.toLowerCase().includes("date")) {
     displayValue = formatDate((segment as any)[key]);
   } else {
     displayValue = (segment as any)[key]?.toString() || "-";
@@ -817,9 +842,7 @@ const columnsToRender =
         style={{
           display: "inline-block",
           maxWidth:
-            key === "name"
-              ? "220px"
-              : key === "description"
+            key === "description"
               ? "260px"
               : "120px",
           overflow: "hidden",
