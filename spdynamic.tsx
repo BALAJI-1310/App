@@ -419,11 +419,12 @@ const columnsToRender =
 <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "8px" }}>
 
   {/* DATE CHIP */}
-  {(tempSelectedFilters.includes("dateRange") || dateRange.from || dateRange.to) && (
+  {(dateRange.from || dateRange.to) && (
     <Popover positioning={{ position: "below", align: "start" }}>
       <PopoverTrigger disableButtonEnhancement>
         <Button
   appearance="outline"
+  onClick={() => setTempDateRange(dateRange)}
   // onClick={(e) => e.stopPropagation()}
 >
   Schedule Range | {dateRange.from || "?"} → {dateRange.to || "?"}
@@ -939,9 +940,13 @@ onChange={(_, d) =>
   // ✅ handle dateRange selection
 if (tempSelectedFilters.includes("dateRange")) {
   setDateRange(tempDateRange);
-  localStorage.setItem("dateRange", JSON.stringify(dateRange));
+  localStorage.setItem("dateRange", JSON.stringify(tempDateRange));
+} else {
+  // ✅ CLEAR IF UNCHECKED
+  const cleared = { from: "", to: "" };
+  setDateRange(cleared);
+  localStorage.setItem("dateRange", JSON.stringify(cleared));
 }
-
   localStorage.setItem("selectedFilters", JSON.stringify(updated));
 
   setIsFilterPanelOpen(false);
@@ -950,7 +955,7 @@ if (tempSelectedFilters.includes("dateRange")) {
       Apply
     </Button>
 
-    <Button onClick={() => setIsFilterPanelOpen(false)}>
+    <Button onClick={() => {setTempDateRange(dateRange);setIsFilterPanelOpen(false)}}>
       Cancel
     </Button>
   </DrawerFooter>
