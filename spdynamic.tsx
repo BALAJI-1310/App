@@ -87,10 +87,10 @@ const [dateRange, setDateRange] = useState({
   from: "",
   to: ""
 });
-const [tempDateRange, setTempDateRange] = useState({
-  from: "",
-  to: ""
-});
+// const [tempDateRange, setTempDateRange] = useState({
+//   from: "",
+//   to: ""
+// });
 
 const isDateTimeColumn = (col: string) =>
   col.toLowerCase().includes("time");
@@ -230,10 +230,17 @@ if (isDateTimeColumn(col)) {
   });
 })
 .filter((row) => {
+  // ✅ DO NOT FILTER if no date selected
   if (!dateRange.from && !dateRange.to) return true;
 
-  const rowDate = new Date(row.startDate || row.endDate);
-if (isNaN(rowDate.getTime())) return false;
+  // ✅ Use correct field (VERY IMPORTANT)
+  const rowDateValue =
+    row.nextScheduledDateTime || row.startDate || row.endDate;
+
+  if (!rowDateValue) return true; // don't remove row
+
+  const rowDate = new Date(rowDateValue);
+  if (isNaN(rowDate.getTime())) return true; // don't remove row
   rowDate.setHours(0, 0, 0, 0);
 
   if (dateRange.from) {
@@ -450,7 +457,7 @@ const columnsToRender =
         <Input
           type="date"
           style={{ width: "100%" }}
-          value={tempDateRange.from}
+          value={dateRange.from}
           onChange={(_, d) =>
             setDateRange((prev) => ({ ...prev, from: d.value }))
           }
@@ -459,7 +466,7 @@ const columnsToRender =
         <Input
           type="date"
           style={{ width: "100%",marginTop: "8px" }}
-          value={tempDateRange.to}
+          value={dateRange.to}
           onChange={(_, d) =>
             setDateRange((prev) => ({ ...prev, to: d.value }))
           }
