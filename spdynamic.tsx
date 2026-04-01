@@ -582,7 +582,7 @@ const columnsToRender =
     {/* Left side: Icon + Title */}
     <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
       <Filter24Regular />
-      <Text weight="semibold">Select Filters</Text>
+      <Text weight="semibold">Filters</Text>
     </div>
 
     {/* Right side: Close button */}
@@ -594,9 +594,9 @@ const columnsToRender =
   </div>
 
   {/* Subtitle */}
-  <Text size={300} style={{ marginTop: "6px", color: "#666" }}>
+  {/* <Text size={300} style={{ marginTop: "6px", color: "#666" }}>
     Select which filters to display in your table.
-  </Text>
+  </Text> */}
 </DrawerHeader>
  <DrawerBody style={{ overflowY: "auto" }}>
 
@@ -631,14 +631,13 @@ const columnsToRender =
   ))}
 
 </DrawerBody>
-
 <DrawerFooter
   style={{
     display: "flex",
     justifyContent: "flex-end",
     gap: "10px",
     borderTop: "1px solid #eee",
-    paddingTop: "12px"
+    padding: "16px",   // 👈 THIS FIXES POSITION (important)
   }}
 >
   <Button
@@ -655,7 +654,10 @@ const columnsToRender =
     Reset
   </Button>
 
-  <Button onClick={() => setIsFilterPanelOpen(false)}>
+  <Button
+    appearance="secondary"
+    onClick={() => setIsFilterPanelOpen(false)}
+  >
     Close
   </Button>
 </DrawerFooter>
