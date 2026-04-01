@@ -598,59 +598,51 @@ const columnsToRender =
     Select which filters to display in your table.
   </Text>
 </DrawerHeader>
-  <DrawerBody style={{ overflowY: "auto" }}>
+ <DrawerBody style={{ overflowY: "auto" }}>
 
   {(["state", "cycle", "recurrence", "createdBy"] as const).map((key) => (
     <div key={key} style={{ marginBottom: "16px" }}>
       
-      <Text weight="semibold">
+      <Text weight="semibold" style={{ marginBottom: "6px", display: "block" }}>
         {key.charAt(0).toUpperCase() + key.slice(1)}
       </Text>
 
-      <Input
-        placeholder="Search..."
-        value={filterSearch[key]}
-        onChange={(_, d) =>
-          setFilterSearch((prev) => ({ ...prev, [key]: d.value }))
-        }
-        style={{ marginTop: "6px", marginBottom: "6px" }}
-      />
+      <Dropdown
+        placeholder="Select an option"
+        selectedOptions={filters[key]}
+        multiselect
+        onOptionSelect={(_, data) => {
+          setFilters((prev) => ({
+            ...prev,
+            [key]: data.selectedOptions as string[],
+          }));
+          setCurrentPage(1);
+        }}
+        style={{ width: "100%" }}
+      >
+        {filterOptions[key].map((val) => (
+          <Option key={val} value={val}>
+            {val}
+          </Option>
+        ))}
+      </Dropdown>
 
-      <div style={{ maxHeight: "150px", overflowY: "auto" }}>
-        {filterOptions[key]
-          .filter((val) =>
-            val.toLowerCase().includes(filterSearch[key].toLowerCase())
-          )
-          .map((val) => (
-            <div key={val}>
-              <input
-                type="checkbox"
-                checked={filters[key].includes(val)}
-                onChange={() => {
-                  setFilters((prev) => {
-                    const exists = prev[key].includes(val);
-                    return {
-                      ...prev,
-                      [key]: exists
-                        ? prev[key].filter((v) => v !== val)
-                        : [...prev[key], val],
-                    };
-                  });
-                  setCurrentPage(1);
-                }}
-              />
-              <span style={{ marginLeft: "6px" }}>{val}</span>
-            </div>
-          ))}
-      </div>
     </div>
   ))}
 
 </DrawerBody>
 
-<DrawerFooter>
+<DrawerFooter
+  style={{
+    display: "flex",
+    justifyContent: "flex-end",
+    gap: "10px",
+    borderTop: "1px solid #eee",
+    paddingTop: "12px"
+  }}
+>
   <Button
-    appearance="secondary"
+    appearance="primary"
     onClick={() => {
       setFilters({
         state: [],
