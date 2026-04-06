@@ -45,13 +45,11 @@ def main():
         # PHASE 1: PARSE CONFIG
         # ====================================================
         try:
-            print("🔧 [PHASE 1] Parsing config...")
+            print("[PHASE 1] Parsing config...")
 
             config = json.loads(export_config)
 
-            export_id          = config.get("ExportId")
             export_name        = config.get("ExportName")
-            segment_id         = config.get("SegmentId")
             export_type        = config.get("ExportType")
             watermark_column   = config.get("WatermarkColumn")
             target_source      = config.get("TargetSource")
@@ -62,43 +60,30 @@ def main():
             static_metadata    = config.get("StaticMetadataJson")
             last_exported_at   = config.get("LastExportedAt")
 
-            print(f" Config parsed: {export_name}")
+            print(f"Config parsed: {export_name}")
 
         except Exception as e:
-            print("[PHASE 1 FAILED]")
             raise Exception(f"CONFIG_PARSE: {str(e)}")
-
 
         # ====================================================
         # PHASE 2: READ DATA
         # ====================================================
         try:
             print("[PHASE 2] Reading data...")
-
             df = spark.table(table_name)
-
             print("Data loaded")
-
         except Exception as e:
-            print("[PHASE 2 FAILED]")
             raise Exception(f"READ_DATA: {str(e)}")
-
 
         # ====================================================
         # PHASE 3: INCREMENTAL FILTER
         # ====================================================
         try:
             print("[PHASE 3] Incremental filtering...")
-
             if export_type == "Incremental" and watermark_column and last_exported_at:
                 df = df.filter(F.col(watermark_column) > F.lit(last_exported_at))
-
-            print("Incremental filter applied")
-
         except Exception as e:
-            print("[PHASE 3 FAILED]")
             raise Exception(f"INCREMENTAL_FILTER: {str(e)}")
-
 
         # ====================================================
         # PHASE 4: APPLY FILTERS
@@ -144,12 +129,8 @@ def main():
 
                     df = df.filter(combined)
 
-            print("Filters applied")
-
         except Exception as e:
-            print("[PHASE 4 FAILED]")
             raise Exception(f"FILTERING: {str(e)}")
-
 
         # ====================================================
         # PHASE 5: COLUMN MAPPING
@@ -184,12 +165,8 @@ def main():
 
             df_export = df.select(select_exprs) if select_exprs else df
 
-            print("Column mapping applied")
-
         except Exception as e:
-            print("[PHASE 5 FAILED]")
             raise Exception(f"COLUMN_MAPPING: {str(e)}")
-
 
         # ====================================================
         # PHASE 6: STATIC METADATA
@@ -206,12 +183,8 @@ def main():
                         F.lit(s.get("staticValue"))
                     )
 
-            print("Static metadata added")
-
         except Exception as e:
-            print("[PHASE 6 FAILED]")
             raise Exception(f"STATIC_METADATA: {str(e)}")
-
 
         # ====================================================
         # PHASE 7: WRITE OUTPUT
@@ -221,50 +194,48 @@ def main():
 
             timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
 
-            blob_path = f"segment-exports/{target_source}/{target_identifier}/{export_name}_{timestamp}"
+            temp_blob_path = f"{target_source}/{target_identifier}/temp_{export_name}_{timestamp}"
+            temp_output_path = f"abfss://{CONTAINER_NAME}@{STORAGE_ACCOUNT}.dfs.core.windows.net/{temp_blob_path}"
 
-            output_path = f"abfss://{CONTAINER_NAME}@{STORAGE_ACCOUNT}.dfs.core.windows.net/{blob_path}"
+            final_blob_path = f"{target_source}/{target_identifier}/{export_name}_{timestamp}.csv"
+            final_output_path = f"abfss://{CONTAINER_NAME}@{STORAGE_ACCOUNT}.dfs.core.windows.net/{final_blob_path}"
 
             df_export.coalesce(1).write \
                 .option("header", "true") \
                 .mode("overwrite") \
-                .csv(output_path)
+                .csv(temp_output_path)
 
-            print(f"Written to: {output_path}")
+            files = mssparkutils.fs.ls(temp_output_path)
+            part_files = [f.path for f in files if "part-" in f.name]
+
+            if not part_files:
+                raise Exception("No part file found in temp folder")
+
+            part_file = part_files[0]
+
+            mssparkutils.fs.mv(part_file, final_output_path, True)
+            mssparkutils.fs.rm(temp_output_path, True)
+
+            output_path = final_output_path
+            blob_path = final_blob_path
+
+            print(f"Final file created: {output_path}")
 
         except Exception as e:
-            print("[PHASE 7 FAILED]")
             raise Exception(f"WRITE_OUTPUT: {str(e)}")
-
 
         # ====================================================
         # PHASE 8: FINAL OUTPUT
         # ====================================================
-        import time
+        try:
+            file_size = 0
 
-        file_size = 0
-        
-        # Retry logic (handles timing issue)
-        for i in range(3):
             try:
-                time.sleep(2)  # wait for filesystem to stabilize
-        
-                files = dbutils.fs.ls(output_path)
-        
-                # Get actual data files (ignore _SUCCESS)
-                data_files = [f for f in files if "part-" in f.name]
-        
-                if data_files:
-                    # If single file
-                    file_size = data_files[0].size
-        
-                    # OR if you want total size (better)
-                    # file_size = sum(f.size for f in data_files)
-        
-                    break
-        
+                file_info = mssparkutils.fs.ls(output_path)
+                file_size = file_info[0].size
             except Exception as e:
-                print(f"Retry {i+1} failed: {str(e)}")
+                print("File size fetch failed:", str(e))
+
             result = {
                 "status": "SUCCESS",
                 "total_records": df_export.count(),
@@ -277,9 +248,7 @@ def main():
             return result
 
         except Exception as e:
-            print("[PHASE 8 FAILED]")
             raise Exception(f"FINAL_RESPONSE: {str(e)}")
-
 
     except Exception as e:
         print("MAIN FAILED")
@@ -295,26 +264,6 @@ def main():
 # CELL 6: Execute
 # ============================================================
 
-try:
-    print("Executing main()...")
-
-    result = main()
-
-    mssparkutils.notebook.exit(json.dumps(result))
-    
-except Exception as e:
-
-    # Synapse throws a Py4JJavaError after notebook.exit()
-    msg = str(e)
-
-    # If our JSON already exists in the exception → notebook already exited correctly
-    if '"SUCCESS"' in msg:
-        raise
-
-
-    mssparkutils.notebook.exit(json.dumps({
-        "status": "FAILED",
-        "error": str(e)
-    }))
-
-
+print("Executing main()...")
+result = main()
+mssparkutils.notebook.exit(json.dumps(result))
