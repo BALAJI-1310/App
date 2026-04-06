@@ -240,19 +240,31 @@ def main():
         # ====================================================
         # PHASE 8: FINAL OUTPUT
         # ====================================================
-        try:
-            print("[PHASE 8] Preparing result...")
+        import time
 
-            file_size = 0
-
+        file_size = 0
+        
+        # Retry logic (handles timing issue)
+        for i in range(3):
             try:
+                time.sleep(2)  # wait for filesystem to stabilize
+        
                 files = dbutils.fs.ls(output_path)
-                csv_files = [f for f in files if f.name.endswith(".csv")]
-                if csv_files:
-                    file_size = csv_files[0].size
-            except:
-                pass
-
+        
+                # Get actual data files (ignore _SUCCESS)
+                data_files = [f for f in files if "part-" in f.name]
+        
+                if data_files:
+                    # If single file
+                    file_size = data_files[0].size
+        
+                    # OR if you want total size (better)
+                    # file_size = sum(f.size for f in data_files)
+        
+                    break
+        
+            except Exception as e:
+                print(f"Retry {i+1} failed: {str(e)}")
             result = {
                 "status": "SUCCESS",
                 "total_records": df_export.count(),
