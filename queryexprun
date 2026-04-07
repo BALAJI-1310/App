@@ -1,0 +1,9 @@
+INSERT INTO dbo.ExportRun (Id, ExportId, ExportType, Status, StartedAt)
+OUTPUT INSERTED.Id AS ExportRunId
+VALUES (
+    NEWID(),
+    '@{item().ExportId}',
+    '@{item().ExportType}',
+    'Running',
+    SYSUTCDATETIME()
+);
