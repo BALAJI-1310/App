@@ -135,3 +135,15 @@ print(f"dimorganizationprofile_edl (filtered): {df_dimorganizationprofile_edl_fi
 
 print(f"dimindividualprofile (filtered): {df_dimindividualprofile_filtered.count()}")
 print(f"dimindividualprofile_edl (filtered): {df_dimindividualprofile_edl_filtered.count()}")
+
+
+df_AccountProfile.show(5, False)
+df_ContactProfile.show(5, False)
+
+df_dimorganizationprofile.show(5, False)
+df_individualalternatekey.show(5, False)
+df_dimindividualprofile.show(5, False)
+
+df_dimorganizationprofile_edl.show(5, False)
+df_individualalternatekey_edl.show(5, False)
+df_dimindividualprofile_edl.show(5, False)
