@@ -105,3 +105,33 @@ if row_count > 0 and Operation_Updated == "delete":
         )
     else:
         df_dimindividualprofile_edl_filtered = df_dimindividualprofile_edl
+
+//changes
+print("df_AccountProfile count:", df_AccountProfile.count())
+print("df_ContactProfile count:", df_ContactProfile.count())
+
+print("df_dimorganizationprofile count:", df_dimorganizationprofile.count())
+print("df_individualalternatekey count:", df_individualalternatekey.count())
+print("df_dimindividualprofile count:", df_dimindividualprofile.count())
+
+print("df_dimorganizationprofile_edl count:", df_dimorganizationprofile_edl.count())
+print("df_individualalternatekey_edl count:", df_individualalternatekey_edl.count())
+print("df_dimindividualprofile_edl count:", df_dimindividualprofile_edl.count())
+
+
+
+
+filtered:
+print("\n===== COUNTS BEFORE WRITE =====")
+
+print(f"ContactProfile (filtered): {df_ContactProfile_filtered.count()}")
+print(f"AccountProfile (filtered): {df_AccountProfile_filtered.count()}")
+
+print(f"individualalternatekey (filtered): {df_individualalternatekey_filtered.count()}")
+print(f"individualalternatekey_edl (filtered): {df_individualalternatekey_edl_filtered.count()}")
+
+print(f"dimorganizationprofile (filtered): {df_dimorganizationprofile_filtered.count()}")
+print(f"dimorganizationprofile_edl (filtered): {df_dimorganizationprofile_edl_filtered.count()}")
+
+print(f"dimindividualprofile (filtered): {df_dimindividualprofile_filtered.count()}")
+print(f"dimindividualprofile_edl (filtered): {df_dimindividualprofile_edl_filtered.count()}")
