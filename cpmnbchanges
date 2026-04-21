@@ -33,3 +33,28 @@ df = df.dropna(how="all")
 # Quick validation (safe)
 df.show(5)
 df.printSchema()
+
+
+
+
+
+----------------------------
+full_tbl = f"{mpaa_db}.cpm_raw_Emails"
+
+#  Drop table (same as before)
+spark.sql(f"DROP TABLE IF EXISTS {full_tbl}")
+
+#  Remove destination files (same as before)
+if destination_path and mssparkutils.fs.exists(destination_path):
+    mssparkutils.fs.rm(destination_path, True)
+
+#  Repartition before write (important)
+df = df.repartition(800)
+
+#  Same writer style
+writer = df.write.mode("overwrite")
+
+if destination_path:
+    writer = writer.option("path", destination_path)
+
+writer.saveAsTable(full_tbl)
