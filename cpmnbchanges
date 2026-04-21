@@ -1,3 +1,12 @@
 df = spark.read.format("sstream").load(source_path)
 
 print("Source count:", df.count())
+
+
+spark.conf.set("spark.sql.files.maxPartitionBytes", "128MB")
+spark.conf.set("spark.sql.shuffle.partitions", "800")   # adjust based on cluster
+spark.conf.set("spark.sql.adaptive.enabled", "true")
+spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
+---
+
+print("Partitions:", df.rdd.getNumPartitions())
