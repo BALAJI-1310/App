@@ -10,3 +10,26 @@ spark.conf.set("spark.sql.adaptive.skewJoin.enabled", "true")
 ---
 
 print("Partitions:", df.rdd.getNumPartitions())
+
+
+
+# READ DATA
+df = (spark.read
+        .format("sstream")
+        .load(source_path)
+)
+
+
+
+# Repartition (adjust based on cluster)
+df = df.repartition(2500) 
+
+
+
+# Clean data (VERY IMPORTANT)
+df = df.dropna(how="all")
+
+
+# Quick validation (safe)
+df.show(5)
+df.printSchema()
