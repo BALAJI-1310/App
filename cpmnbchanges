@@ -66,3 +66,36 @@ https://spark.apache.org/docs/latest/sql-migration-guide.html#upgrading-from-spa
 
 
 https://learn.microsoft.com/en-us/answers/questions/5562805/intermittent-spark-pool-failures-and-increased-sta
+
+
+
+WITH MyFinalTable AS (
+    SELECT 
+        FM.OrderJobNumber,
+        DIP.MPAAIndividualID,
+        DIP.FirstName,
+        DIP.LastName,
+        DIP.FullName
+    FROM [UCMP_FF].[FulfillmentMaster] (NOLOCK) AS FM
+    INNER JOIN #FulfillmentIndividual AS FI
+        ON FM.OrderJobNumber = FI.OrderJobNumber
+    INNER JOIN [UCMP].DimIndividualProfile (NOLOCK) AS DIP
+        ON FI.MPAAIndividualID = DIP.MPAAIndividualID
+    LEFT JOIN #Tempaltkey AS IAK
+        ON DIP.MPAAIndividualID = IAK.MPAAIndividualID
+    LEFT JOIN [UCMP].DimOrganizationProfile AS DOP
+        ON DIP.MPAAOrganizationID = DOP.MPAAOrganizationID
+),
+RemoveDupIndividuals AS (
+    SELECT 
+        ROW_NUMBER() OVER (
+            PARTITION BY MPAAIndividualID 
+            ORDER BY FirstName ASC, LastName ASC, FullName ASC
+        ) AS rid,
+        *
+    FROM MyFinalTable
+)
+
+SELECT COUNT(*) AS FinalCount
+FROM RemoveDupIndividuals
+WHERE rid = 1;
