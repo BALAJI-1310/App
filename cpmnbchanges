@@ -58,3 +58,7 @@ if destination_path:
     writer = writer.option("path", destination_path)
 
 writer.saveAsTable(full_tbl)
+
+
+
+https://spark.apache.org/docs/latest/sql-migration-guide.html#upgrading-from-spark-sql-34-to-35
