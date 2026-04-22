@@ -62,3 +62,7 @@ writer.saveAsTable(full_tbl)
 
 
 https://spark.apache.org/docs/latest/sql-migration-guide.html#upgrading-from-spark-sql-34-to-35
+
+
+
+https://learn.microsoft.com/en-us/answers/questions/5562805/intermittent-spark-pool-failures-and-increased-sta
