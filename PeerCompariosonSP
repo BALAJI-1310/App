@@ -1,4 +1,4 @@
-ALTER PROCEDURE UCMP.ZZZ_Test_usp_ValidateCampaing
+ALTER PROCEDURE UCMP.ZZZ_Test_usp_ValidateCampaign
 (
       @Schema           VARCHAR(100)
     , @CampaignID       VARCHAR(200)
@@ -35,7 +35,9 @@ BEGIN
     -- 3. MAIN QUERY SAMPLE OUTPUT
     -----------------------------------------------------------------
 
-    PRINT '================ MAIN QUERY SAMPLE OUTPUT ================';
+    SELECT
+    '================ MAIN QUERY SAMPLE OUTPUT ================'
+    AS SectionName;
 
     DECLARE @MainQuerySQL NVARCHAR(MAX);
 
@@ -53,7 +55,9 @@ BEGIN
     -- 4. GEO VALIDATION
     -----------------------------------------------------------------
 
-    PRINT '================ GEO VALIDATION ================';
+    SELECT
+    '================ GEO VALIDATION ================'
+    AS SectionName;
 
     DECLARE @GeoSQL NVARCHAR(MAX);
 
@@ -79,7 +83,9 @@ BEGIN
     -- 5. LANGUAGE VALIDATION
     -----------------------------------------------------------------
 
-    PRINT '================ LANGUAGE VALIDATION ================';
+    SELECT
+    '================ LANGUAGE VALIDATION ================'
+    AS SectionName;
 
     DECLARE @LanguageSQL NVARCHAR(MAX);
 
@@ -104,7 +110,9 @@ BEGIN
     -- 6. AUDIENCE VALIDATION
     -----------------------------------------------------------------
 
-    PRINT '================ AUDIENCE VALIDATION ================';
+    SELECT
+    '================ AUDIENCE VALIDATION ================'
+    AS SectionName;
 
     DECLARE @AudienceSQL NVARCHAR(MAX);
 
@@ -132,7 +140,9 @@ BEGIN
     -- 7. SEGMENT VALIDATION
     -----------------------------------------------------------------
 
-    PRINT '================ SEGMENT VALIDATION ================';
+    SELECT
+    '================ SEGMENT VALIDATION ================'
+    AS SectionName;
 
     DECLARE @SegmentSQL NVARCHAR(MAX);
 
@@ -159,7 +169,9 @@ BEGIN
     -- 8. INDUSTRY VALIDATION
     -----------------------------------------------------------------
 
-    PRINT '================ INDUSTRY VALIDATION ================';
+    SELECT
+    '================ INDUSTRY VALIDATION ================'
+    AS SectionName;
 
     DECLARE @IndustrySQL NVARCHAR(MAX);
 
@@ -186,7 +198,9 @@ BEGIN
     -- 9. COMMUNICATION TYPE VALIDATION
     -----------------------------------------------------------------
 
-    PRINT '================ COMMUNICATION TYPE VALIDATION ================';
+    SELECT
+    '================ COMMUNICATION TYPE VALIDATION ================'
+    AS SectionName;
 
     DECLARE @CommunicationSQL NVARCHAR(MAX);
 
