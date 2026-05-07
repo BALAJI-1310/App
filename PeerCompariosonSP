@@ -1,4 +1,4 @@
-CREATE PROCEDURE dbo.usp_ValidateCampaign
+ALTER PROCEDURE UCMP.ZZZ_Test_usp_ValidateCampaing
 (
       @Schema           VARCHAR(100)
     , @CampaignID       VARCHAR(200)
@@ -20,114 +20,55 @@ BEGIN
 
 
     -----------------------------------------------------------------
-    -- 2. DROP TEMP TABLE IF EXISTS
-    -----------------------------------------------------------------
-
-    IF OBJECT_ID('tempdb..#ValidationResults') IS NOT NULL
-        DROP TABLE #ValidationResults;
-
-
-    -----------------------------------------------------------------
-    -- 3. CREATE STANDARD RESULT TABLE
-    -----------------------------------------------------------------
-
-    CREATE TABLE #ValidationResults
-    (
-          CheckCategory      VARCHAR(100)
-        , CheckName          VARCHAR(200)
-        , ActualResult       VARCHAR(MAX)
-        , Status             VARCHAR(20)
-        , AdditionalInfo     VARCHAR(MAX)
-    );
-
-
-    -----------------------------------------------------------------
-    -- 4. BUILD DYNAMIC TABLE NAME
+    -- 2. BUILD FULL TABLE NAME
     -----------------------------------------------------------------
 
     DECLARE @FullTableName VARCHAR(500);
 
     SET @FullTableName =
-            'TENANT_' + QUOTENAME(@Schema)
+            QUOTENAME('TENANT_' + @Schema)
             + '.'
             + QUOTENAME(@CampaignID);
 
 
     -----------------------------------------------------------------
-    -- 5. VALIDATE TABLE EXISTS
+    -- 3. MAIN QUERY SAMPLE OUTPUT
     -----------------------------------------------------------------
 
-    DECLARE @TableExistsSQL NVARCHAR(MAX);
+    PRINT '================ MAIN QUERY SAMPLE OUTPUT ================';
 
-    SET @TableExistsSQL = '
-        IF EXISTS
-        (
-            SELECT 1
-            FROM INFORMATION_SCHEMA.TABLES
-            WHERE TABLE_SCHEMA = ''TENANT_' + @Schema + '''
-            AND TABLE_NAME = ''' + @CampaignID + '''
-        )
-        BEGIN
+    DECLARE @MainQuerySQL NVARCHAR(MAX);
 
-            INSERT INTO #ValidationResults
-            VALUES
-            (
-                  ''Table Validation''
-                , ''Campaign Table Exists''
-                , ''YES''
-                , ''PASS''
-                , ''' + @FullTableName + '''
-            )
+    SET @MainQuerySQL = '
 
-        END
-        ELSE
-        BEGIN
+        SELECT TOP 1 *
+        FROM ' + @FullTableName + '
 
-            INSERT INTO #ValidationResults
-            VALUES
-            (
-                  ''Table Validation''
-                , ''Campaign Table Exists''
-                , ''NO''
-                , ''FAIL''
-                , ''' + @FullTableName + '''
-            )
-
-        END
     ';
 
-    EXEC (@TableExistsSQL);
+    EXEC (@MainQuerySQL);
 
 
     -----------------------------------------------------------------
-    -- 6. GEO VALIDATION
+    -- 4. GEO VALIDATION
     -----------------------------------------------------------------
+
+    PRINT '================ GEO VALIDATION ================';
 
     DECLARE @GeoSQL NVARCHAR(MAX);
 
     SET @GeoSQL = '
 
-        INSERT INTO #ValidationResults
-        (
-              CheckCategory
-            , CheckName
-            , ActualResult
-            , Status
-            , AdditionalInfo
-        )
-
         SELECT DISTINCT
-
-              ''Geo Validation''
-            , ''Subsidiary Check''
+              IPV.AreaName
             , IPV.SubsidiaryName
-            , ''INFO''
-            , IPV.AreaName
 
         FROM ' + @FullTableName + ' A
 
         INNER JOIN UCMP.DimIndividualProfile IPV
             ON IPV.MPAAIndividualID = A.MPAAIndividualID
+
+        ORDER BY 1,2
 
     ';
 
@@ -135,34 +76,24 @@ BEGIN
 
 
     -----------------------------------------------------------------
-    -- 7. LANGUAGE VALIDATION
+    -- 5. LANGUAGE VALIDATION
     -----------------------------------------------------------------
+
+    PRINT '================ LANGUAGE VALIDATION ================';
 
     DECLARE @LanguageSQL NVARCHAR(MAX);
 
     SET @LanguageSQL = '
 
-        INSERT INTO #ValidationResults
-        (
-              CheckCategory
-            , CheckName
-            , ActualResult
-            , Status
-            , AdditionalInfo
-        )
-
         SELECT DISTINCT
-
-              ''Language Validation''
-            , ''Preferred Language''
-            , IPV.PreferredLanguage
-            , ''INFO''
-            , NULL
+              IPV.PreferredLanguage
 
         FROM ' + @FullTableName + ' A
 
         INNER JOIN UCMP.DimIndividualProfile IPV
             ON IPV.MPAAIndividualID = A.MPAAIndividualID
+
+        ORDER BY 1
 
     ';
 
@@ -170,28 +101,19 @@ BEGIN
 
 
     -----------------------------------------------------------------
-    -- 8. AUDIENCE VALIDATION
+    -- 6. AUDIENCE VALIDATION
     -----------------------------------------------------------------
+
+    PRINT '================ AUDIENCE VALIDATION ================';
 
     DECLARE @AudienceSQL NVARCHAR(MAX);
 
     SET @AudienceSQL = '
 
-        INSERT INTO #ValidationResults
-        (
-              CheckCategory
-            , CheckName
-            , ActualResult
-            , Status
-            , AdditionalInfo
-        )
-
         SELECT DISTINCT
 
-              ''Audience Validation''
-            , IPV.MarketingAudienceCategory
+              IPV.MarketingAudienceCategory
             , IPV.MarketingAudience
-            , ''INFO''
             , IPV.DeveloperFlag
 
         FROM ' + @FullTableName + ' A
@@ -199,40 +121,34 @@ BEGIN
         INNER JOIN UCMP.DimIndividualProfile IPV
             ON IPV.MPAAIndividualID = A.MPAAIndividualID
 
+        ORDER BY 1,2,3
+
     ';
 
     EXEC (@AudienceSQL);
 
 
     -----------------------------------------------------------------
-    -- 9. SEGMENT VALIDATION
+    -- 7. SEGMENT VALIDATION
     -----------------------------------------------------------------
+
+    PRINT '================ SEGMENT VALIDATION ================';
 
     DECLARE @SegmentSQL NVARCHAR(MAX);
 
     SET @SegmentSQL = '
 
-        INSERT INTO #ValidationResults
-        (
-              CheckCategory
-            , CheckName
-            , ActualResult
-            , Status
-            , AdditionalInfo
-        )
-
         SELECT DISTINCT
 
-              ''Segment Validation''
-            , IPV.SegmentName
+              IPV.SegmentName
             , IPV.SubSegmentName
-            , ''INFO''
-            , NULL
 
         FROM ' + @FullTableName + ' A
 
         INNER JOIN UCMP.DimIndividualProfile IPV
             ON IPV.MPAAIndividualID = A.MPAAIndividualID
+
+        ORDER BY 1,2
 
     ';
 
@@ -240,34 +156,26 @@ BEGIN
 
 
     -----------------------------------------------------------------
-    -- 10. INDUSTRY VALIDATION
+    -- 8. INDUSTRY VALIDATION
     -----------------------------------------------------------------
+
+    PRINT '================ INDUSTRY VALIDATION ================';
 
     DECLARE @IndustrySQL NVARCHAR(MAX);
 
     SET @IndustrySQL = '
 
-        INSERT INTO #ValidationResults
-        (
-              CheckCategory
-            , CheckName
-            , ActualResult
-            , Status
-            , AdditionalInfo
-        )
-
         SELECT DISTINCT
 
-              ''Industry Validation''
-            , OPV.IndustryName
+              OPV.IndustryName
             , OPV.VerticalName
-            , ''INFO''
-            , NULL
 
         FROM ' + @FullTableName + ' A
 
         INNER JOIN UCMP.DimOrganizationProfile OPV
             ON OPV.MPAAOrganizationID = A.MPAAOrganizationID
+
+        ORDER BY 1,2
 
     ';
 
@@ -275,44 +183,25 @@ BEGIN
 
 
     -----------------------------------------------------------------
-    -- 11. COMMUNICATION TYPE VALIDATION
+    -- 9. COMMUNICATION TYPE VALIDATION
     -----------------------------------------------------------------
+
+    PRINT '================ COMMUNICATION TYPE VALIDATION ================';
 
     DECLARE @CommunicationSQL NVARCHAR(MAX);
 
     SET @CommunicationSQL = '
 
-        INSERT INTO #ValidationResults
-        (
-              CheckCategory
-            , CheckName
-            , ActualResult
-            , Status
-            , AdditionalInfo
-        )
-
         SELECT DISTINCT
-
-              ''Communication Validation''
-            , ''Communication Type''
-            , CommunicationType
-            , ''INFO''
-            , NULL
+              CommunicationType
 
         FROM ' + @FullTableName + '
+
+        ORDER BY 1
 
     ';
 
     EXEC (@CommunicationSQL);
-
-
-    -----------------------------------------------------------------
-    -- 12. FINAL OUTPUT
-    -----------------------------------------------------------------
-
-    SELECT *
-    FROM #ValidationResults
-    ORDER BY CheckCategory, CheckName;
 
 
 END
