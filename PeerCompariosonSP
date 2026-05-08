@@ -2,26 +2,27 @@ ALTER PROCEDURE UCMP.ZZZ_Test_usp_ValidateCampaign
 (
       @Schema           VARCHAR(100)
     , @CampaignID       VARCHAR(200)
+    , @OJN              BIGINT = NULL
 )
 AS
 BEGIN
 
     SET NOCOUNT ON;
 
-    -----------------------------------------------------------------
-    -- 1. VALIDATE SCHEMA
-    -----------------------------------------------------------------
+    ---------------------------------------------------------------------
+    -- VALIDATE SCHEMA
+    ---------------------------------------------------------------------
 
-    IF @Schema NOT IN ('MEJ', 'PR2', 'PRD', 'TEST')
+    IF @Schema NOT IN ('MEJ','PR2','PRD','TEST')
     BEGIN
         RAISERROR('Invalid Schema Name Passed.',16,1);
         RETURN;
     END
 
 
-    -----------------------------------------------------------------
-    -- 2. BUILD FULL TABLE NAME
-    -----------------------------------------------------------------
+    ---------------------------------------------------------------------
+    -- BUILD DYNAMIC TABLE NAME
+    ---------------------------------------------------------------------
 
     DECLARE @FullTableName VARCHAR(500);
 
@@ -31,242 +32,383 @@ BEGIN
             + QUOTENAME(@CampaignID);
 
 
-    -----------------------------------------------------------------
-    -- 3. MAIN QUERY SAMPLE OUTPUT
-    -----------------------------------------------------------------
+    ---------------------------------------------------------------------
+    -- FINAL VALIDATION SUMMARY TABLE
+    ---------------------------------------------------------------------
 
-    SELECT
-    '================ MAIN QUERY SAMPLE OUTPUT ================'
-    AS SectionName;
-
-    DECLARE @MainQuerySQL NVARCHAR(MAX);
-
-    SET @MainQuerySQL = '
-
-        SELECT TOP 1 *
-        FROM ' + @FullTableName + '
-
-    ';
-
-    EXEC (@MainQuerySQL);
+    CREATE TABLE #ValidationSummary
+    (
+          CheckCategory     VARCHAR(200)
+        , CheckName         VARCHAR(500)
+        , ActualResult      VARCHAR(MAX)
+        , Status            VARCHAR(20)
+    );
 
 
-    -----------------------------------------------------------------
-    -- 4. GEO VALIDATION
-    -----------------------------------------------------------------
+    ---------------------------------------------------------------------
+    -- 1. MAIN QUERY COLUMN CHECK
+    ---------------------------------------------------------------------
 
-    SELECT
-    '================ GEO VALIDATION ================'
-    AS SectionName;
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Main Query'
+        , 'Campaign Table Exists'
+        , @FullTableName
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 2. GEO VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @GeoResult NVARCHAR(MAX);
 
     DECLARE @GeoSQL NVARCHAR(MAX);
 
     SET @GeoSQL = '
 
-        SELECT DISTINCT
-              IPV.AreaName
-            , IPV.SubsidiaryName
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(IPV.AreaName, '''')
+                        + '' - ''
+                        + ISNULL(IPV.SubsidiaryName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
 
-        FROM ' + @FullTableName + ' A
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.AreaName
+                , IPV.SubsidiaryName
 
-        INNER JOIN UCMP.DimIndividualProfile IPV
-            ON IPV.MPAAIndividualID = A.MPAAIndividualID
+            FROM ' + @FullTableName + ' A
 
-        ORDER BY 1,2
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
 
     ';
 
-    EXEC (@GeoSQL);
+    EXEC sp_executesql
+        @GeoSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @GeoResult OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 5. LANGUAGE VALIDATION
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Geo Validation'
+        , 'Area/Subsidiary Values'
+        , ISNULL(@GeoResult,'No Data Found')
+        , 'INFO'
+    );
 
-    SELECT
-    '================ LANGUAGE VALIDATION ================'
-    AS SectionName;
+
+    ---------------------------------------------------------------------
+    -- 3. LANGUAGE VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @LanguageResult NVARCHAR(MAX);
 
     DECLARE @LanguageSQL NVARCHAR(MAX);
 
     SET @LanguageSQL = '
 
-        SELECT DISTINCT
-              IPV.PreferredLanguage
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(ISNULL(IPV.PreferredLanguage, '''') AS NVARCHAR(MAX))
+                , '' | ''
+                )
 
-        FROM ' + @FullTableName + ' A
+        FROM
+        (
+            SELECT DISTINCT IPV.PreferredLanguage
 
-        INNER JOIN UCMP.DimIndividualProfile IPV
-            ON IPV.MPAAIndividualID = A.MPAAIndividualID
+            FROM ' + @FullTableName + ' A
 
-        ORDER BY 1
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
 
     ';
 
-    EXEC (@LanguageSQL);
+    EXEC sp_executesql
+        @LanguageSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @LanguageResult OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 6. AUDIENCE VALIDATION
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Language Validation'
+        , 'Preferred Languages'
+        , ISNULL(@LanguageResult,'No Data Found')
+        , 'INFO'
+    );
 
-    SELECT
-    '================ AUDIENCE VALIDATION ================'
-    AS SectionName;
+
+    ---------------------------------------------------------------------
+    -- 4. AUDIENCE VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @AudienceResult NVARCHAR(MAX);
 
     DECLARE @AudienceSQL NVARCHAR(MAX);
 
     SET @AudienceSQL = '
 
-        SELECT DISTINCT
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(IPV.MarketingAudienceCategory, '''')
+                        + '' - ''
+                        + ISNULL(IPV.MarketingAudience, '''')
+                        + '' - ''
+                        + ISNULL(IPV.DeveloperFlag, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
 
-              IPV.MarketingAudienceCategory
-            , IPV.MarketingAudience
-            , IPV.DeveloperFlag
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.MarketingAudienceCategory
+                , IPV.MarketingAudience
+                , IPV.DeveloperFlag
 
-        FROM ' + @FullTableName + ' A
+            FROM ' + @FullTableName + ' A
 
-        INNER JOIN UCMP.DimIndividualProfile IPV
-            ON IPV.MPAAIndividualID = A.MPAAIndividualID
-
-        ORDER BY 1,2,3
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
 
     ';
 
-    EXEC (@AudienceSQL);
+    EXEC sp_executesql
+        @AudienceSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @AudienceResult OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 7. SEGMENT VALIDATION
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Audience Validation'
+        , 'Audience Classification'
+        , ISNULL(@AudienceResult,'No Data Found')
+        , 'INFO'
+    );
 
-    SELECT
-    '================ SEGMENT VALIDATION ================'
-    AS SectionName;
+
+    ---------------------------------------------------------------------
+    -- 5. SEGMENT VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @SegmentResult NVARCHAR(MAX);
 
     DECLARE @SegmentSQL NVARCHAR(MAX);
 
     SET @SegmentSQL = '
 
-        SELECT DISTINCT
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(IPV.SegmentName, '''')
+                        + '' - ''
+                        + ISNULL(IPV.SubSegmentName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
 
-              IPV.SegmentName
-            , IPV.SubSegmentName
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.SegmentName
+                , IPV.SubSegmentName
 
-        FROM ' + @FullTableName + ' A
+            FROM ' + @FullTableName + ' A
 
-        INNER JOIN UCMP.DimIndividualProfile IPV
-            ON IPV.MPAAIndividualID = A.MPAAIndividualID
-
-        ORDER BY 1,2
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
 
     ';
 
-    EXEC (@SegmentSQL);
+    EXEC sp_executesql
+        @SegmentSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @SegmentResult OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 8. INDUSTRY VALIDATION
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Segment Validation'
+        , 'Segment/SubSegment Values'
+        , ISNULL(@SegmentResult,'No Data Found')
+        , 'INFO'
+    );
 
-    SELECT
-    '================ INDUSTRY VALIDATION ================'
-    AS SectionName;
+
+    ---------------------------------------------------------------------
+    -- 6. INDUSTRY VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @IndustryResult NVARCHAR(MAX);
 
     DECLARE @IndustrySQL NVARCHAR(MAX);
 
     SET @IndustrySQL = '
 
-        SELECT DISTINCT
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(OPV.IndustryName, '''')
+                        + '' - ''
+                        + ISNULL(OPV.VerticalName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
 
-              OPV.IndustryName
-            , OPV.VerticalName
+        FROM
+        (
+            SELECT DISTINCT
+                  OPV.IndustryName
+                , OPV.VerticalName
 
-        FROM ' + @FullTableName + ' A
+            FROM ' + @FullTableName + ' A
 
-        INNER JOIN UCMP.DimOrganizationProfile OPV
-            ON OPV.MPAAOrganizationID = A.MPAAOrganizationID
-
-        ORDER BY 1,2
+            INNER JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+                ON OPV.MPAAOrganizationID = A.MPAAOrganizationID
+        ) X
 
     ';
 
-    EXEC (@IndustrySQL);
+    EXEC sp_executesql
+        @IndustrySQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @IndustryResult OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 9. COMMUNICATION TYPE VALIDATION
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Industry Validation'
+        , 'Industry/Vertical Values'
+        , ISNULL(@IndustryResult,'No Data Found')
+        , 'INFO'
+    );
 
-    SELECT
-    '================ COMMUNICATION TYPE VALIDATION ================'
-    AS SectionName;
+
+    ---------------------------------------------------------------------
+    -- 7. COMMUNICATION TYPE VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @CommunicationResult NVARCHAR(MAX);
 
     DECLARE @CommunicationSQL NVARCHAR(MAX);
 
     SET @CommunicationSQL = '
 
-        SELECT DISTINCT
-              CommunicationType
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(ISNULL(CommunicationType, '''') AS NVARCHAR(MAX))
+                , '' | ''
+                )
 
-        FROM ' + @FullTableName + '
-
-        ORDER BY 1
+        FROM
+        (
+            SELECT DISTINCT CommunicationType
+            FROM ' + @FullTableName + '
+        ) X
 
     ';
 
-    EXEC (@CommunicationSQL);
+    EXEC sp_executesql
+        @CommunicationSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @CommunicationResult OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 10. RENEWAL EXTRA CHECKS
-    -----------------------------------------------------------------
-    -----------------------------------------------------------------
-    -- 10. RENEWAL EXTRA CHECKS
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Communication Validation'
+        , 'Communication Types'
+        , ISNULL(@CommunicationResult,'No Data Found')
+        , 'INFO'
+    );
 
 
-    -----------------------------------------------------------------
-    -- 10A. JOB ROLE VALIDATION
-    -----------------------------------------------------------------
+    ---------------------------------------------------------------------
+    -- 8. JOB ROLE VALIDATION
+    ---------------------------------------------------------------------
 
-    SELECT
-    '================ JOB ROLE VALIDATION ================'
-    AS SectionName;
+    DECLARE @JobRoleResult NVARCHAR(MAX);
 
     DECLARE @JobRoleSQL NVARCHAR(MAX);
 
     SET @JobRoleSQL = '
 
-        SELECT DISTINCT
-              IPV.JobRole
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(ISNULL(IPV.JobRole, '''') AS NVARCHAR(MAX))
+                , '' | ''
+                )
 
-        FROM ' + @FullTableName + ' A
+        FROM
+        (
+            SELECT DISTINCT IPV.JobRole
 
-        INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
-            ON A.MPAAIndividualID = IPV.MPAAIndividualID
+            FROM ' + @FullTableName + ' A
 
-        ORDER BY 1
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
 
     ';
 
-    EXEC (@JobRoleSQL);
+    EXEC sp_executesql
+        @JobRoleSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @JobRoleResult OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 10B. EXCLUDE AIG
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Renewal Validation'
+        , 'Job Roles Found'
+        , ISNULL(@JobRoleResult,'No Data Found')
+        , 'INFO'
+    );
 
-    SELECT
-    '================ RENEWAL CHECK - CONTAINS AIG ================'
-    AS SectionName;
+
+    ---------------------------------------------------------------------
+    -- 9. CONTAINS AIG
+    ---------------------------------------------------------------------
+
+    DECLARE @AIGCount INT;
 
     DECLARE @AIGSQL NVARCHAR(MAX);
 
     SET @AIGSQL = '
 
         SELECT
-              COUNT(*) AS [Contains AIG]
+            @Result = COUNT(*)
 
         FROM ' + @FullTableName + '
 
@@ -287,23 +429,34 @@ BEGIN
 
     ';
 
-    EXEC (@AIGSQL);
+    EXEC sp_executesql
+        @AIGSQL,
+        N'@Result INT OUTPUT',
+        @Result = @AIGCount OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 10C. EXCLUDE PERSONAL DOMAINS
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Renewal Validation'
+        , 'Contains AIG'
+        , CAST(@AIGCount AS VARCHAR(100))
+        , CASE WHEN @AIGCount = 0 THEN 'PASS' ELSE 'FAIL' END
+    );
 
-    SELECT
-    '================ RENEWAL CHECK - PERSONAL DOMAINS ================'
-    AS SectionName;
+
+    ---------------------------------------------------------------------
+    -- 10. PERSONAL DOMAINS
+    ---------------------------------------------------------------------
+
+    DECLARE @PersonalDomainCount INT;
 
     DECLARE @PersonalDomainSQL NVARCHAR(MAX);
 
     SET @PersonalDomainSQL = '
 
         SELECT
-              COUNT(*) AS [Contains Personal Domains]
+            @Result = COUNT(*)
 
         FROM ' + @FullTableName + '
 
@@ -317,23 +470,34 @@ BEGIN
 
     ';
 
-    EXEC (@PersonalDomainSQL);
+    EXEC sp_executesql
+        @PersonalDomainSQL,
+        N'@Result INT OUTPUT',
+        @Result = @PersonalDomainCount OUTPUT;
 
 
-    -----------------------------------------------------------------
-    -- 10D. EXCLUDE QUEBEC
-    -----------------------------------------------------------------
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Renewal Validation'
+        , 'Contains Personal Domains'
+        , CAST(@PersonalDomainCount AS VARCHAR(100))
+        , CASE WHEN @PersonalDomainCount = 0 THEN 'PASS' ELSE 'FAIL' END
+    );
 
-    SELECT
-    '================ RENEWAL CHECK - CONTAINS QUEBEC ================'
-    AS SectionName;
+
+    ---------------------------------------------------------------------
+    -- 11. QUEBEC VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @QuebecCount INT;
 
     DECLARE @QuebecSQL NVARCHAR(MAX);
 
     SET @QuebecSQL = '
 
         SELECT
-              COUNT(*) AS [Contains Quebec]
+            @Result = COUNT(*)
 
         FROM ' + @FullTableName + '
 
@@ -346,5 +510,36 @@ BEGIN
 
     ';
 
-    EXEC (@QuebecSQL);END
+    EXEC sp_executesql
+        @QuebecSQL,
+        N'@Result INT OUTPUT',
+        @Result = @QuebecCount OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Renewal Validation'
+        , 'Contains Quebec'
+        , CAST(@QuebecCount AS VARCHAR(100))
+        , CASE WHEN @QuebecCount = 0 THEN 'PASS' ELSE 'FAIL' END
+    );
+
+
+    ---------------------------------------------------------------------
+    -- FINAL OUTPUT
+    ---------------------------------------------------------------------
+
+    SELECT
+          CheckCategory
+        , CheckName
+        , ActualResult
+        , Status
+    FROM #ValidationSummary
+    ORDER BY CheckCategory, CheckName;
+
+
+    DROP TABLE #ValidationSummary;
+
+END
 GO
