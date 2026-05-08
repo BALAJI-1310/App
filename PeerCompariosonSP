@@ -537,7 +537,375 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 15. FINAL OUTPUT
+    -- 15. FULFILLMENT HISTORY CHECK
+    ---------------------------------------------------------------------
+
+    DECLARE @FulfillmentCount INT;
+
+    SELECT
+        @FulfillmentCount = COUNT(*)
+    FROM UCMP_FF.FulfillmentMaster WITH (NOLOCK)
+    WHERE CampaignLabel LIKE '%' + @CampaignID + '%';
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Fulfillment Validation'
+        , 'Previous Fulfillments Found'
+        , CAST(@FulfillmentCount AS VARCHAR(100))
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 16. BLOCKING REPORT EXECUTION
+    ---------------------------------------------------------------------
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Fulfillment Validation'
+        , 'GenerateCampaignBlockingReport Executed'
+        , CAST(@OJN AS VARCHAR(100))
+        , 'INFO'
+    );
+
+    EXEC UCMP_FF.GenerateCampaignBlockingReport @OJN;
+
+
+    ---------------------------------------------------------------------
+    -- 17. EXECUTION REPORT EXECUTION
+    ---------------------------------------------------------------------
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Fulfillment Validation'
+        , 'GenerateCampaignExecutionReport Executed'
+        , CAST(@OJN AS VARCHAR(100))
+        , 'INFO'
+    );
+
+    EXEC UCMP_FF.GenerateCampaignExecutionReport @OJN;
+
+
+    ---------------------------------------------------------------------
+    -- 18. CCM DATE / ACTIVITY ID
+    ---------------------------------------------------------------------
+
+    DECLARE @CCMResult NVARCHAR(MAX);
+
+    SELECT
+        @CCMResult =
+            STRING_AGG
+            (
+                CAST
+                (
+                    ISNULL(CAST(CellDropDate AS VARCHAR(100)), '')
+                    + ' - '
+                    + ISNULL(CampaignCode, '')
+                AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              CellDropDate
+            , CampaignCode
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'CCM Date / Activity ID'
+        , ISNULL(@CCMResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 19. OUTPUT LAYOUT COUNTS
+    ---------------------------------------------------------------------
+
+    DECLARE @EmailCount BIGINT;
+    DECLARE @IndividualCount BIGINT;
+
+    SELECT
+          @EmailCount = COUNT(DISTINCT EmailAddress)
+        , @IndividualCount = COUNT(DISTINCT MPAAIndividualID)
+
+    FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+    WHERE OrderJobNumber = @OJN;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'Distinct Email Count'
+        , CAST(@EmailCount AS VARCHAR(100))
+        , 'INFO'
+    );
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'Distinct MPAAIndividualID Count'
+        , CAST(@IndividualCount AS VARCHAR(100))
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 20. OUTPUT LAYOUT GEO
+    ---------------------------------------------------------------------
+
+    DECLARE @OutputGeoResult NVARCHAR(MAX);
+
+    SELECT
+        @OutputGeoResult =
+            STRING_AGG
+            (
+                CAST
+                (
+                    ISNULL(INDArea,'')
+                    + ' - '
+                    + ISNULL(IndSubsidiary,'')
+                    + ' - '
+                    + ISNULL(IndCountry,'')
+                AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              INDArea
+            , IndSubsidiary
+            , IndCountry
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'Output GEO Values'
+        , ISNULL(@OutputGeoResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 21. OUTPUT LAYOUT AUDIENCE
+    ---------------------------------------------------------------------
+
+    DECLARE @OutputAudienceResult NVARCHAR(MAX);
+
+    SELECT
+        @OutputAudienceResult =
+            STRING_AGG
+            (
+                CAST
+                (
+                    ISNULL(STAC_CustomerGroup,'')
+                    + ' - '
+                    + ISNULL(STAC_MarketingAudience,'')
+                AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              STAC_CustomerGroup
+            , STAC_MarketingAudience
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'Output Audience Values'
+        , ISNULL(@OutputAudienceResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 22. OUTPUT LAYOUT COMMUNICATION TYPE
+    ---------------------------------------------------------------------
+
+    DECLARE @OutputCommunicationResult NVARCHAR(MAX);
+
+    SELECT
+        @OutputCommunicationResult =
+            STRING_AGG
+            (
+                CAST(IsPromotionalEMEligible AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              IsPromotionalEMEligible
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'Promotional Eligibility'
+        , ISNULL(@OutputCommunicationResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 23. OUTPUT LAYOUT SEGMENTS
+    ---------------------------------------------------------------------
+
+    DECLARE @OutputSegmentResult NVARCHAR(MAX);
+
+    SELECT
+        @OutputSegmentResult =
+            STRING_AGG
+            (
+                CAST
+                (
+                    ISNULL(InferredSegment,'')
+                    + ' - '
+                    + ISNULL(InferredSubSegment,'')
+                AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              InferredSegment
+            , InferredSubSegment
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'Output Segment Values'
+        , ISNULL(@OutputSegmentResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 24. OUTPUT LAYOUT TPIDs
+    ---------------------------------------------------------------------
+
+    DECLARE @TPIDResult NVARCHAR(MAX);
+
+    SELECT
+        @TPIDResult =
+            STRING_AGG
+            (
+                CAST(MSSalesTopParentID AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              MSSalesTopParentID
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'MSSalesTopParentIDs'
+        , ISNULL(@TPIDResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 25. OUTPUT LAYOUT INDUSTRIES
+    ---------------------------------------------------------------------
+
+    DECLARE @OutputIndustryResult NVARCHAR(MAX);
+
+    SELECT
+        @OutputIndustryResult =
+            STRING_AGG
+            (
+                CAST
+                (
+                    ISNULL(IndustryName,'')
+                    + ' - '
+                    + ISNULL(VerticalName,'')
+                AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              IndustryName
+            , VerticalName
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          'Output Layout Validation'
+        , 'Industry / Vertical Values'
+        , ISNULL(@OutputIndustryResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- FINAL OUTPUT
     ---------------------------------------------------------------------
 
     SELECT
@@ -550,7 +918,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 16. CLEANUP
+    -- CLEANUP
     ---------------------------------------------------------------------
 
     DROP TABLE #ValidationSummary;
