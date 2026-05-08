@@ -38,7 +38,8 @@ BEGIN
 
     CREATE TABLE #ValidationSummary
     (
-          CheckCategory     VARCHAR(200)
+          StepNumber       INT
+        , CheckCategory     VARCHAR(200)
         , CheckName         VARCHAR(500)
         , ActualResult      NVARCHAR(MAX)
         , Status            VARCHAR(20)
@@ -52,7 +53,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Main Query'
+          1
+        , 'Main Query'
         , 'Campaign Table'
         , @FullTableName
         , 'INFO'
@@ -102,7 +104,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Geo Validation'
+          2
+        , 'Geo Validation'
         , 'Area/Subsidiary Values'
         , ISNULL(@GeoResult,'No Data Found')
         , 'INFO'
@@ -147,7 +150,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Language Validation'
+          3
+        , 'Language Validation'
         , 'Preferred Languages'
         , ISNULL(@LanguageResult,'No Data Found')
         , 'INFO'
@@ -200,7 +204,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Audience Validation'
+          4
+        , 'Audience Validation'
         , 'Audience Classification'
         , ISNULL(@AudienceResult,'No Data Found')
         , 'INFO'
@@ -250,7 +255,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Segment Validation'
+          5
+        , 'Segment Validation'
         , 'Segment/SubSegment Values'
         , ISNULL(@SegmentResult,'No Data Found')
         , 'INFO'
@@ -300,7 +306,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Industry Validation'
+          6
+        , 'Industry Validation'
         , 'Industry/Vertical Values'
         , ISNULL(@IndustryResult,'No Data Found')
         , 'INFO'
@@ -340,7 +347,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Communication Validation'
+          7
+        , 'Communication Validation'
         , 'Communication Types'
         , ISNULL(@CommunicationResult,'No Data Found')
         , 'INFO'
@@ -384,7 +392,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Renewal Validation'
+          8
+        , 'Renewal Validation'
         , 'Job Roles Found'
         , ISNULL(@JobRoleResult,'No Data Found')
         , 'INFO'
@@ -431,7 +440,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Renewal Validation'
+          9
+        , 'Renewal Validation'
         , 'Contains AIG'
         , CAST(@AIGCount AS VARCHAR(100))
         , CASE
@@ -474,7 +484,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Renewal Validation'
+          10
+        , 'Renewal Validation'
         , 'Contains Personal Domains'
         , CAST(@PersonalDomainCount AS VARCHAR(100))
         , CASE
@@ -516,7 +527,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Renewal Validation'
+          11
+        , 'Renewal Validation'
         , 'Contains Quebec'
         , CAST(@QuebecCount AS VARCHAR(100))
         , CASE
@@ -541,7 +553,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Fulfillment Validation'
+          12
+        , 'Fulfillment Validation'
         , 'Previous Fulfillments Found'
         , CAST(@FulfillmentCount AS VARCHAR(100))
         , 'INFO'
@@ -549,23 +562,29 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 16. BLOCKING / EXECUTION REPORT INFO
+    -- 16. BLOCKING REPORT VALIDATION
     ---------------------------------------------------------------------
 
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Fulfillment Validation'
+          13
+        , 'Fulfillment Validation'
         , 'Blocking Report Validation'
         , 'Blocking report check completed for OJN ' + CAST(@OJN AS VARCHAR(100))
         , 'INFO'
     );
 
 
+    ---------------------------------------------------------------------
+    -- 17. EXECUTION REPORT VALIDATION
+    ---------------------------------------------------------------------
+
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Fulfillment Validation'
+          14
+        , 'Fulfillment Validation'
         , 'Execution Report Validation'
         , 'Execution report check completed for OJN ' + CAST(@OJN AS VARCHAR(100))
         , 'INFO'
@@ -573,7 +592,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 17. CCM DATE / ACTIVITY ID
+    -- 18. CCM DATE / ACTIVITY ID
     ---------------------------------------------------------------------
 
     DECLARE @CCMResult NVARCHAR(MAX);
@@ -606,7 +625,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Output Layout Validation'
+          15
+        , 'Output Layout Validation'
         , 'CCM Date / Activity ID'
         , ISNULL(@CCMResult,'No Data Found')
         , 'INFO'
@@ -614,7 +634,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 18. OUTPUT LAYOUT COUNTS
+    -- 19. OUTPUT LAYOUT COUNTS
     ---------------------------------------------------------------------
 
     DECLARE @EmailCount BIGINT;
@@ -632,7 +652,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Output Layout Validation'
+          16
+        , 'Output Layout Validation'
         , 'Distinct Email Count'
         , CAST(@EmailCount AS VARCHAR(100))
         , 'INFO'
@@ -642,7 +663,8 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Output Layout Validation'
+          17
+        , 'Output Layout Validation'
         , 'Distinct MPAAIndividualID Count'
         , CAST(@IndividualCount AS VARCHAR(100))
         , 'INFO'
@@ -650,7 +672,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 19. OUTPUT LAYOUT GEO
+    -- 20. OUTPUT LAYOUT GEO
     ---------------------------------------------------------------------
 
     DECLARE @OutputGeoResult NVARCHAR(MAX);
@@ -686,202 +708,10 @@ BEGIN
     INSERT INTO #ValidationSummary
     VALUES
     (
-          'Output Layout Validation'
+          18
+        , 'Output Layout Validation'
         , 'Output GEO Values'
         , ISNULL(@OutputGeoResult,'No Data Found')
-        , 'INFO'
-    );
-
-
-    ---------------------------------------------------------------------
-    -- 20. OUTPUT LAYOUT AUDIENCE
-    ---------------------------------------------------------------------
-
-    DECLARE @OutputAudienceResult NVARCHAR(MAX);
-
-    SELECT
-        @OutputAudienceResult =
-            STRING_AGG
-            (
-                CAST
-                (
-                    ISNULL(STAC_CustomerGroup,'')
-                    + ' - '
-                    + ISNULL(STAC_MarketingAudience,'')
-                AS NVARCHAR(MAX))
-            , ' | '
-            )
-
-    FROM
-    (
-        SELECT DISTINCT
-              STAC_CustomerGroup
-            , STAC_MarketingAudience
-
-        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
-
-        WHERE OrderJobNumber = @OJN
-    ) X;
-
-
-    INSERT INTO #ValidationSummary
-    VALUES
-    (
-          'Output Layout Validation'
-        , 'Output Audience Values'
-        , ISNULL(@OutputAudienceResult,'No Data Found')
-        , 'INFO'
-    );
-
-
-    ---------------------------------------------------------------------
-    -- 21. OUTPUT LAYOUT COMMUNICATION TYPE
-    ---------------------------------------------------------------------
-
-    DECLARE @OutputCommunicationResult NVARCHAR(MAX);
-
-    SELECT
-        @OutputCommunicationResult =
-            STRING_AGG
-            (
-                CAST(IsPromotionalEMEligible AS NVARCHAR(MAX))
-            , ' | '
-            )
-
-    FROM
-    (
-        SELECT DISTINCT
-              IsPromotionalEMEligible
-
-        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
-
-        WHERE OrderJobNumber = @OJN
-    ) X;
-
-
-    INSERT INTO #ValidationSummary
-    VALUES
-    (
-          'Output Layout Validation'
-        , 'Promotional Eligibility'
-        , ISNULL(@OutputCommunicationResult,'No Data Found')
-        , 'INFO'
-    );
-
-
-    ---------------------------------------------------------------------
-    -- 22. OUTPUT LAYOUT SEGMENTS
-    ---------------------------------------------------------------------
-
-    DECLARE @OutputSegmentResult NVARCHAR(MAX);
-
-    SELECT
-        @OutputSegmentResult =
-            STRING_AGG
-            (
-                CAST
-                (
-                    ISNULL(InferredSegment,'')
-                    + ' - '
-                    + ISNULL(InferredSubSegment,'')
-                AS NVARCHAR(MAX))
-            , ' | '
-            )
-
-    FROM
-    (
-        SELECT DISTINCT
-              InferredSegment
-            , InferredSubSegment
-
-        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
-
-        WHERE OrderJobNumber = @OJN
-    ) X;
-
-
-    INSERT INTO #ValidationSummary
-    VALUES
-    (
-          'Output Layout Validation'
-        , 'Output Segment Values'
-        , ISNULL(@OutputSegmentResult,'No Data Found')
-        , 'INFO'
-    );
-
-
-    ---------------------------------------------------------------------
-    -- 23. OUTPUT LAYOUT TPIDs
-    ---------------------------------------------------------------------
-
-    DECLARE @TPIDResult NVARCHAR(MAX);
-
-    SELECT
-        @TPIDResult =
-            STRING_AGG
-            (
-                CAST(MSSalesTopParentID AS NVARCHAR(MAX))
-            , ' | '
-            )
-
-    FROM
-    (
-        SELECT DISTINCT
-              MSSalesTopParentID
-
-        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
-
-        WHERE OrderJobNumber = @OJN
-    ) X;
-
-
-    INSERT INTO #ValidationSummary
-    VALUES
-    (
-          'Output Layout Validation'
-        , 'MSSalesTopParentIDs'
-        , ISNULL(@TPIDResult,'No Data Found')
-        , 'INFO'
-    );
-
-
-    ---------------------------------------------------------------------
-    -- 24. OUTPUT LAYOUT INDUSTRIES
-    ---------------------------------------------------------------------
-
-    DECLARE @OutputIndustryResult NVARCHAR(MAX);
-
-    SELECT
-        @OutputIndustryResult =
-            STRING_AGG
-            (
-                CAST
-                (
-                    ISNULL(IndustryName,'')
-                    + ' - '
-                    + ISNULL(VerticalName,'')
-                AS NVARCHAR(MAX))
-            , ' | '
-            )
-
-    FROM
-    (
-        SELECT DISTINCT
-              IndustryName
-            , VerticalName
-
-        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
-
-        WHERE OrderJobNumber = @OJN
-    ) X;
-
-
-    INSERT INTO #ValidationSummary
-    VALUES
-    (
-          'Output Layout Validation'
-        , 'Industry / Vertical Values'
-        , ISNULL(@OutputIndustryResult,'No Data Found')
         , 'INFO'
     );
 
@@ -896,7 +726,7 @@ BEGIN
         , ActualResult
         , Status
     FROM #ValidationSummary
-    ORDER BY CheckCategory, CheckName;
+    ORDER BY StepNumber;
 
 
     ---------------------------------------------------------------------
