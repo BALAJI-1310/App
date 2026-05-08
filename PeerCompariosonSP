@@ -221,9 +221,40 @@ BEGIN
     -----------------------------------------------------------------
     -- 10. RENEWAL EXTRA CHECKS
     -----------------------------------------------------------------
+    -----------------------------------------------------------------
+    -- 10. RENEWAL EXTRA CHECKS
+    -----------------------------------------------------------------
+
 
     -----------------------------------------------------------------
-    -- 10A. CONTAINS AIG
+    -- 10A. JOB ROLE VALIDATION
+    -----------------------------------------------------------------
+
+    SELECT
+    '================ JOB ROLE VALIDATION ================'
+    AS SectionName;
+
+    DECLARE @JobRoleSQL NVARCHAR(MAX);
+
+    SET @JobRoleSQL = '
+
+        SELECT DISTINCT
+              IPV.JobRole
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+            ON A.MPAAIndividualID = IPV.MPAAIndividualID
+
+        ORDER BY 1
+
+    ';
+
+    EXEC (@JobRoleSQL);
+
+
+    -----------------------------------------------------------------
+    -- 10B. EXCLUDE AIG
     -----------------------------------------------------------------
 
     SELECT
@@ -239,9 +270,20 @@ BEGIN
 
         FROM ' + @FullTableName + '
 
-        WHERE
-            ISNULL(OrganizationName, '''') LIKE ''%AIG%''
-            OR ISNULL(AccountName, '''') LIKE ''%AIG%''
+        WHERE OrganizationName IN
+        (
+              ''Esaress International group inc''
+            , ''AIG''
+            , ''AMERICAN INTERNATIONAL GROUP INC''
+            , ''Ameriprise''
+        )
+
+        OR MssTopParentID IN
+        (
+              ''10713283''
+            , ''642275''
+            , ''6019179''
+        )
 
     ';
 
@@ -249,7 +291,7 @@ BEGIN
 
 
     -----------------------------------------------------------------
-    -- 10B. CONTAINS PERSONAL DOMAINS
+    -- 10C. EXCLUDE PERSONAL DOMAINS
     -----------------------------------------------------------------
 
     SELECT
@@ -266,15 +308,12 @@ BEGIN
         FROM ' + @FullTableName + '
 
         WHERE
-            LOWER(ISNULL(EmailDomain, '''')) IN
-            (
-                  ''gmail.com''
-                , ''yahoo.com''
-                , ''hotmail.com''
-                , ''outlook.com''
-                , ''live.com''
-                , ''aol.com''
-            )
+               emaildomain LIKE ''%hotmail.com%''
+            OR emaildomain LIKE ''%GMAIL.COM%''
+            OR emaildomain LIKE ''%yahoo.COM%''
+            OR emaildomain LIKE ''%aol.COM%''
+            OR emaildomain LIKE ''%live.com%''
+            OR emaildomain LIKE ''%spencerstuart.com%''
 
     ';
 
@@ -282,7 +321,7 @@ BEGIN
 
 
     -----------------------------------------------------------------
-    -- 10C. CONTAINS QUEBEC
+    -- 10D. EXCLUDE QUEBEC
     -----------------------------------------------------------------
 
     SELECT
@@ -296,18 +335,16 @@ BEGIN
         SELECT
               COUNT(*) AS [Contains Quebec]
 
-        FROM ' + @FullTableName + ' A
-
-        INNER JOIN UCMP.DimIndividualProfile IPV
-            ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        FROM ' + @FullTableName + '
 
         WHERE
-            IPV.SubsidiaryName = ''Quebec''
+               OrgStateOrProvince LIKE ''%quebec%''
+            OR OrgStateOrProvince LIKE ''%québec%''
+            OR OrgCity LIKE ''%quebec%''
+            OR OrgCity LIKE ''%québec%''
+            OR OrgStateOrProvince = ''qc''
 
     ';
 
-    EXEC (@QuebecSQL);
-
-
-END
+    EXEC (@QuebecSQL);END
 GO
