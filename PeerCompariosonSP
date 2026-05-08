@@ -10,7 +10,7 @@ BEGIN
     SET NOCOUNT ON;
 
     ---------------------------------------------------------------------
-    -- VALIDATE SCHEMA
+    -- 1. VALIDATE SCHEMA
     ---------------------------------------------------------------------
 
     IF @Schema NOT IN ('MEJ','PR2','PRD','TEST')
@@ -21,7 +21,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- BUILD DYNAMIC TABLE NAME
+    -- 2. BUILD DYNAMIC TABLE NAME
     ---------------------------------------------------------------------
 
     DECLARE @FullTableName VARCHAR(500);
@@ -33,34 +33,34 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- FINAL VALIDATION SUMMARY TABLE
+    -- 3. CREATE FINAL SUMMARY TABLE
     ---------------------------------------------------------------------
 
     CREATE TABLE #ValidationSummary
     (
           CheckCategory     VARCHAR(200)
         , CheckName         VARCHAR(500)
-        , ActualResult      VARCHAR(MAX)
+        , ActualResult      NVARCHAR(MAX)
         , Status            VARCHAR(20)
     );
 
 
     ---------------------------------------------------------------------
-    -- 1. MAIN QUERY COLUMN CHECK
+    -- 4. MAIN QUERY VALIDATION
     ---------------------------------------------------------------------
 
     INSERT INTO #ValidationSummary
     VALUES
     (
           'Main Query'
-        , 'Campaign Table Exists'
+        , 'Campaign Table'
         , @FullTableName
         , 'INFO'
     );
 
 
     ---------------------------------------------------------------------
-    -- 2. GEO VALIDATION
+    -- 5. GEO VALIDATION
     ---------------------------------------------------------------------
 
     DECLARE @GeoResult NVARCHAR(MAX);
@@ -73,9 +73,9 @@ BEGIN
             @Result =
                 STRING_AGG(
                     CAST(
-                        ISNULL(IPV.AreaName, '''')
+                        ISNULL(X.AreaName, '''')
                         + '' - ''
-                        + ISNULL(IPV.SubsidiaryName, '''')
+                        + ISNULL(X.SubsidiaryName, '''')
                     AS NVARCHAR(MAX))
                 , '' | ''
                 )
@@ -111,7 +111,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 3. LANGUAGE VALIDATION
+    -- 6. LANGUAGE VALIDATION
     ---------------------------------------------------------------------
 
     DECLARE @LanguageResult NVARCHAR(MAX);
@@ -123,13 +123,14 @@ BEGIN
         SELECT
             @Result =
                 STRING_AGG(
-                    CAST(ISNULL(IPV.PreferredLanguage, '''') AS NVARCHAR(MAX))
+                    CAST(ISNULL(X.PreferredLanguage, '''') AS NVARCHAR(MAX))
                 , '' | ''
                 )
 
         FROM
         (
-            SELECT DISTINCT IPV.PreferredLanguage
+            SELECT DISTINCT
+                  IPV.PreferredLanguage
 
             FROM ' + @FullTableName + ' A
 
@@ -156,7 +157,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 4. AUDIENCE VALIDATION
+    -- 7. AUDIENCE VALIDATION
     ---------------------------------------------------------------------
 
     DECLARE @AudienceResult NVARCHAR(MAX);
@@ -169,11 +170,11 @@ BEGIN
             @Result =
                 STRING_AGG(
                     CAST(
-                        ISNULL(IPV.MarketingAudienceCategory, '''')
+                        ISNULL(X.MarketingAudienceCategory, '''')
                         + '' - ''
-                        + ISNULL(IPV.MarketingAudience, '''')
+                        + ISNULL(X.MarketingAudience, '''')
                         + '' - ''
-                        + ISNULL(IPV.DeveloperFlag, '''')
+                        + ISNULL(X.DeveloperFlag, '''')
                     AS NVARCHAR(MAX))
                 , '' | ''
                 )
@@ -210,7 +211,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 5. SEGMENT VALIDATION
+    -- 8. SEGMENT VALIDATION
     ---------------------------------------------------------------------
 
     DECLARE @SegmentResult NVARCHAR(MAX);
@@ -223,9 +224,9 @@ BEGIN
             @Result =
                 STRING_AGG(
                     CAST(
-                        ISNULL(IPV.SegmentName, '''')
+                        ISNULL(X.SegmentName, '''')
                         + '' - ''
-                        + ISNULL(IPV.SubSegmentName, '''')
+                        + ISNULL(X.SubSegmentName, '''')
                     AS NVARCHAR(MAX))
                 , '' | ''
                 )
@@ -261,7 +262,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 6. INDUSTRY VALIDATION
+    -- 9. INDUSTRY VALIDATION
     ---------------------------------------------------------------------
 
     DECLARE @IndustryResult NVARCHAR(MAX);
@@ -274,9 +275,9 @@ BEGIN
             @Result =
                 STRING_AGG(
                     CAST(
-                        ISNULL(OPV.IndustryName, '''')
+                        ISNULL(X.IndustryName, '''')
                         + '' - ''
-                        + ISNULL(OPV.VerticalName, '''')
+                        + ISNULL(X.VerticalName, '''')
                     AS NVARCHAR(MAX))
                 , '' | ''
                 )
@@ -312,7 +313,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 7. COMMUNICATION TYPE VALIDATION
+    -- 10. COMMUNICATION TYPE VALIDATION
     ---------------------------------------------------------------------
 
     DECLARE @CommunicationResult NVARCHAR(MAX);
@@ -324,7 +325,7 @@ BEGIN
         SELECT
             @Result =
                 STRING_AGG(
-                    CAST(ISNULL(CommunicationType, '''') AS NVARCHAR(MAX))
+                    CAST(ISNULL(X.CommunicationType, '''') AS NVARCHAR(MAX))
                 , '' | ''
                 )
 
@@ -353,7 +354,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 8. JOB ROLE VALIDATION
+    -- 11. JOB ROLE VALIDATION
     ---------------------------------------------------------------------
 
     DECLARE @JobRoleResult NVARCHAR(MAX);
@@ -365,7 +366,7 @@ BEGIN
         SELECT
             @Result =
                 STRING_AGG(
-                    CAST(ISNULL(IPV.JobRole, '''') AS NVARCHAR(MAX))
+                    CAST(ISNULL(X.JobRole, '''') AS NVARCHAR(MAX))
                 , '' | ''
                 )
 
@@ -398,7 +399,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 9. CONTAINS AIG
+    -- 12. CONTAINS AIG CHECK
     ---------------------------------------------------------------------
 
     DECLARE @AIGCount INT;
@@ -441,12 +442,15 @@ BEGIN
           'Renewal Validation'
         , 'Contains AIG'
         , CAST(@AIGCount AS VARCHAR(100))
-        , CASE WHEN @AIGCount = 0 THEN 'PASS' ELSE 'FAIL' END
+        , CASE
+              WHEN @AIGCount = 0 THEN 'PASS'
+              ELSE 'FAIL'
+          END
     );
 
 
     ---------------------------------------------------------------------
-    -- 10. PERSONAL DOMAINS
+    -- 13. PERSONAL DOMAIN CHECK
     ---------------------------------------------------------------------
 
     DECLARE @PersonalDomainCount INT;
@@ -482,12 +486,15 @@ BEGIN
           'Renewal Validation'
         , 'Contains Personal Domains'
         , CAST(@PersonalDomainCount AS VARCHAR(100))
-        , CASE WHEN @PersonalDomainCount = 0 THEN 'PASS' ELSE 'FAIL' END
+        , CASE
+              WHEN @PersonalDomainCount = 0 THEN 'PASS'
+              ELSE 'FAIL'
+          END
     );
 
 
     ---------------------------------------------------------------------
-    -- 11. QUEBEC VALIDATION
+    -- 14. QUEBEC VALIDATION
     ---------------------------------------------------------------------
 
     DECLARE @QuebecCount INT;
@@ -522,12 +529,15 @@ BEGIN
           'Renewal Validation'
         , 'Contains Quebec'
         , CAST(@QuebecCount AS VARCHAR(100))
-        , CASE WHEN @QuebecCount = 0 THEN 'PASS' ELSE 'FAIL' END
+        , CASE
+              WHEN @QuebecCount = 0 THEN 'PASS'
+              ELSE 'FAIL'
+          END
     );
 
 
     ---------------------------------------------------------------------
-    -- FINAL OUTPUT
+    -- 15. FINAL OUTPUT
     ---------------------------------------------------------------------
 
     SELECT
@@ -538,6 +548,10 @@ BEGIN
     FROM #ValidationSummary
     ORDER BY CheckCategory, CheckName;
 
+
+    ---------------------------------------------------------------------
+    -- 16. CLEANUP
+    ---------------------------------------------------------------------
 
     DROP TABLE #ValidationSummary;
 
