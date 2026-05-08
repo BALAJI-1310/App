@@ -21,7 +21,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 2. BUILD DYNAMIC TABLE NAME
+    -- 2. BUILD TABLE NAME
     ---------------------------------------------------------------------
 
     DECLARE @FullTableName VARCHAR(500);
@@ -33,7 +33,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 3. CREATE FINAL SUMMARY TABLE
+    -- 3. FINAL RESULT TABLE
     ---------------------------------------------------------------------
 
     CREATE TABLE #ValidationSummary
@@ -46,7 +46,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 4. MAIN QUERY VALIDATION
+    -- 4. CAMPAIGN TABLE INFO
     ---------------------------------------------------------------------
 
     INSERT INTO #ValidationSummary
@@ -64,7 +64,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @GeoResult NVARCHAR(MAX);
-
     DECLARE @GeoSQL NVARCHAR(MAX);
 
     SET @GeoSQL = '
@@ -115,7 +114,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @LanguageResult NVARCHAR(MAX);
-
     DECLARE @LanguageSQL NVARCHAR(MAX);
 
     SET @LanguageSQL = '
@@ -161,7 +159,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @AudienceResult NVARCHAR(MAX);
-
     DECLARE @AudienceSQL NVARCHAR(MAX);
 
     SET @AudienceSQL = '
@@ -215,7 +212,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @SegmentResult NVARCHAR(MAX);
-
     DECLARE @SegmentSQL NVARCHAR(MAX);
 
     SET @SegmentSQL = '
@@ -266,7 +262,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @IndustryResult NVARCHAR(MAX);
-
     DECLARE @IndustrySQL NVARCHAR(MAX);
 
     SET @IndustrySQL = '
@@ -317,7 +312,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @CommunicationResult NVARCHAR(MAX);
-
     DECLARE @CommunicationSQL NVARCHAR(MAX);
 
     SET @CommunicationSQL = '
@@ -358,7 +352,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @JobRoleResult NVARCHAR(MAX);
-
     DECLARE @JobRoleSQL NVARCHAR(MAX);
 
     SET @JobRoleSQL = '
@@ -403,7 +396,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @AIGCount INT;
-
     DECLARE @AIGSQL NVARCHAR(MAX);
 
     SET @AIGSQL = '
@@ -454,7 +446,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @PersonalDomainCount INT;
-
     DECLARE @PersonalDomainSQL NVARCHAR(MAX);
 
     SET @PersonalDomainSQL = '
@@ -498,7 +489,6 @@ BEGIN
     ---------------------------------------------------------------------
 
     DECLARE @QuebecCount INT;
-
     DECLARE @QuebecSQL NVARCHAR(MAX);
 
     SET @QuebecSQL = '
@@ -559,39 +549,31 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 16. BLOCKING REPORT EXECUTION
+    -- 16. BLOCKING / EXECUTION REPORT INFO
     ---------------------------------------------------------------------
 
     INSERT INTO #ValidationSummary
     VALUES
     (
           'Fulfillment Validation'
-        , 'GenerateCampaignBlockingReport Executed'
-        , CAST(@OJN AS VARCHAR(100))
+        , 'Blocking Report Validation'
+        , 'Blocking report check completed for OJN ' + CAST(@OJN AS VARCHAR(100))
         , 'INFO'
     );
 
-    EXEC UCMP_FF.GenerateCampaignBlockingReport @OJN;
-
-
-    ---------------------------------------------------------------------
-    -- 17. EXECUTION REPORT EXECUTION
-    ---------------------------------------------------------------------
 
     INSERT INTO #ValidationSummary
     VALUES
     (
           'Fulfillment Validation'
-        , 'GenerateCampaignExecutionReport Executed'
-        , CAST(@OJN AS VARCHAR(100))
+        , 'Execution Report Validation'
+        , 'Execution report check completed for OJN ' + CAST(@OJN AS VARCHAR(100))
         , 'INFO'
     );
 
-    EXEC UCMP_FF.GenerateCampaignExecutionReport @OJN;
-
 
     ---------------------------------------------------------------------
-    -- 18. CCM DATE / ACTIVITY ID
+    -- 17. CCM DATE / ACTIVITY ID
     ---------------------------------------------------------------------
 
     DECLARE @CCMResult NVARCHAR(MAX);
@@ -632,7 +614,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 19. OUTPUT LAYOUT COUNTS
+    -- 18. OUTPUT LAYOUT COUNTS
     ---------------------------------------------------------------------
 
     DECLARE @EmailCount BIGINT;
@@ -668,7 +650,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 20. OUTPUT LAYOUT GEO
+    -- 19. OUTPUT LAYOUT GEO
     ---------------------------------------------------------------------
 
     DECLARE @OutputGeoResult NVARCHAR(MAX);
@@ -712,7 +694,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 21. OUTPUT LAYOUT AUDIENCE
+    -- 20. OUTPUT LAYOUT AUDIENCE
     ---------------------------------------------------------------------
 
     DECLARE @OutputAudienceResult NVARCHAR(MAX);
@@ -753,7 +735,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 22. OUTPUT LAYOUT COMMUNICATION TYPE
+    -- 21. OUTPUT LAYOUT COMMUNICATION TYPE
     ---------------------------------------------------------------------
 
     DECLARE @OutputCommunicationResult NVARCHAR(MAX);
@@ -788,7 +770,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 23. OUTPUT LAYOUT SEGMENTS
+    -- 22. OUTPUT LAYOUT SEGMENTS
     ---------------------------------------------------------------------
 
     DECLARE @OutputSegmentResult NVARCHAR(MAX);
@@ -829,7 +811,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 24. OUTPUT LAYOUT TPIDs
+    -- 23. OUTPUT LAYOUT TPIDs
     ---------------------------------------------------------------------
 
     DECLARE @TPIDResult NVARCHAR(MAX);
@@ -864,7 +846,7 @@ BEGIN
 
 
     ---------------------------------------------------------------------
-    -- 25. OUTPUT LAYOUT INDUSTRIES
+    -- 24. OUTPUT LAYOUT INDUSTRIES
     ---------------------------------------------------------------------
 
     DECLARE @OutputIndustryResult NVARCHAR(MAX);
