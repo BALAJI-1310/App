@@ -218,5 +218,96 @@ BEGIN
     EXEC (@CommunicationSQL);
 
 
+    -----------------------------------------------------------------
+    -- 10. RENEWAL EXTRA CHECKS
+    -----------------------------------------------------------------
+
+    -----------------------------------------------------------------
+    -- 10A. CONTAINS AIG
+    -----------------------------------------------------------------
+
+    SELECT
+    '================ RENEWAL CHECK - CONTAINS AIG ================'
+    AS SectionName;
+
+    DECLARE @AIGSQL NVARCHAR(MAX);
+
+    SET @AIGSQL = '
+
+        SELECT
+              COUNT(*) AS [Contains AIG]
+
+        FROM ' + @FullTableName + '
+
+        WHERE
+            ISNULL(OrganizationName, '''') LIKE ''%AIG%''
+            OR ISNULL(AccountName, '''') LIKE ''%AIG%''
+
+    ';
+
+    EXEC (@AIGSQL);
+
+
+    -----------------------------------------------------------------
+    -- 10B. CONTAINS PERSONAL DOMAINS
+    -----------------------------------------------------------------
+
+    SELECT
+    '================ RENEWAL CHECK - PERSONAL DOMAINS ================'
+    AS SectionName;
+
+    DECLARE @PersonalDomainSQL NVARCHAR(MAX);
+
+    SET @PersonalDomainSQL = '
+
+        SELECT
+              COUNT(*) AS [Contains Personal Domains]
+
+        FROM ' + @FullTableName + '
+
+        WHERE
+            LOWER(ISNULL(EmailDomain, '''')) IN
+            (
+                  ''gmail.com''
+                , ''yahoo.com''
+                , ''hotmail.com''
+                , ''outlook.com''
+                , ''live.com''
+                , ''aol.com''
+            )
+
+    ';
+
+    EXEC (@PersonalDomainSQL);
+
+
+    -----------------------------------------------------------------
+    -- 10C. CONTAINS QUEBEC
+    -----------------------------------------------------------------
+
+    SELECT
+    '================ RENEWAL CHECK - CONTAINS QUEBEC ================'
+    AS SectionName;
+
+    DECLARE @QuebecSQL NVARCHAR(MAX);
+
+    SET @QuebecSQL = '
+
+        SELECT
+              COUNT(*) AS [Contains Quebec]
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimIndividualProfile IPV
+            ON IPV.MPAAIndividualID = A.MPAAIndividualID
+
+        WHERE
+            IPV.SubsidiaryName = ''Quebec''
+
+    ';
+
+    EXEC (@QuebecSQL);
+
+
 END
 GO
