@@ -1,0 +1,1061 @@
+ALTER PROCEDURE UCMP.ZZZ_Test_usp_ValidateCampaign
+(
+      @Schema           VARCHAR(100)
+    , @CampaignID       VARCHAR(200)
+    , @OJN              BIGINT = NULL
+)
+AS
+BEGIN
+
+    SET NOCOUNT ON;
+
+    ---------------------------------------------------------------------
+    -- 1. VALIDATE SCHEMA
+    ---------------------------------------------------------------------
+
+    IF @Schema NOT IN ('MEJ','PR2','PRD','TEST')
+    BEGIN
+        RAISERROR('Invalid Schema Name Passed.',16,1);
+        RETURN;
+    END
+
+
+    ---------------------------------------------------------------------
+    -- 2. BUILD TABLE NAME
+    ---------------------------------------------------------------------
+
+    DECLARE @FullTableName VARCHAR(500);
+
+    SET @FullTableName =
+            QUOTENAME('TENANT_' + @Schema)
+            + '.'
+            + QUOTENAME(@CampaignID);
+
+
+    ---------------------------------------------------------------------
+    -- 3. FINAL RESULT TABLE
+    ---------------------------------------------------------------------
+
+    CREATE TABLE #ValidationSummary
+    (
+          StepNumber       INT
+        , CheckCategory     VARCHAR(200)
+        , CheckName         VARCHAR(500)
+        , ActualResult      NVARCHAR(MAX)
+        , Status            VARCHAR(20)
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 4. CAMPAIGN TABLE INFO
+    ---------------------------------------------------------------------
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          1
+        , 'Main Query'
+        , 'Campaign Table'
+        , @FullTableName
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 5. GEO VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @GeoResult NVARCHAR(MAX);
+    DECLARE @GeoSQL NVARCHAR(MAX);
+
+    SET @GeoSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(X.AreaName, '''')
+                        + '' - ''
+                        + ISNULL(X.SubsidiaryName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.AreaName
+                , IPV.SubsidiaryName
+
+            FROM ' + @FullTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @GeoSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @GeoResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          2
+        , 'Geo Validation'
+        , 'Area/Subsidiary Values'
+        , ISNULL(@GeoResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 6. LANGUAGE VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @LanguageResult NVARCHAR(MAX);
+    DECLARE @LanguageSQL NVARCHAR(MAX);
+
+    SET @LanguageSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(ISNULL(X.PreferredLanguage, '''') AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.PreferredLanguage
+
+            FROM ' + @FullTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @LanguageSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @LanguageResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          3
+        , 'Language Validation'
+        , 'Preferred Languages'
+        , ISNULL(@LanguageResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 7. AUDIENCE VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @AudienceResult NVARCHAR(MAX);
+    DECLARE @AudienceSQL NVARCHAR(MAX);
+
+    SET @AudienceSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(X.MarketingAudienceCategory, '''')
+                        + '' - ''
+                        + ISNULL(X.MarketingAudience, '''')
+                        + '' - ''
+                        + ISNULL(X.DeveloperFlag, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.MarketingAudienceCategory
+                , IPV.MarketingAudience
+                , IPV.DeveloperFlag
+
+            FROM ' + @FullTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @AudienceSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @AudienceResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          4
+        , 'Audience Validation'
+        , 'Audience Classification'
+        , ISNULL(@AudienceResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 8. SEGMENT VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @SegmentResult NVARCHAR(MAX);
+    DECLARE @SegmentSQL NVARCHAR(MAX);
+
+    SET @SegmentSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(X.SegmentName, '''')
+                        + '' - ''
+                        + ISNULL(X.SubSegmentName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.SegmentName
+                , IPV.SubSegmentName
+
+            FROM ' + @FullTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @SegmentSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @SegmentResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          5
+        , 'Segment Validation'
+        , 'Segment/SubSegment Values'
+        , ISNULL(@SegmentResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 9. INDUSTRY VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @IndustryResult NVARCHAR(MAX);
+    DECLARE @IndustrySQL NVARCHAR(MAX);
+
+    SET @IndustrySQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(X.IndustryName, '''')
+                        + '' - ''
+                        + ISNULL(X.VerticalName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  OPV.IndustryName
+                , OPV.VerticalName
+
+            FROM ' + @FullTableName + ' A
+
+            INNER JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+                ON OPV.MPAAOrganizationID = A.MPAAOrganizationID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @IndustrySQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @IndustryResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          6
+        , 'Industry Validation'
+        , 'Industry/Vertical Values'
+        , ISNULL(@IndustryResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 10. COMMUNICATION TYPE VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @CommunicationResult NVARCHAR(MAX);
+    DECLARE @CommunicationSQL NVARCHAR(MAX);
+
+    SET @CommunicationSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(ISNULL(X.CommunicationType, '''') AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT CommunicationType
+            FROM ' + @FullTableName + '
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @CommunicationSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @CommunicationResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          7
+        , 'Communication Validation'
+        , 'Communication Types'
+        , ISNULL(@CommunicationResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 11. JOB ROLE VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @JobRoleResult NVARCHAR(MAX);
+    DECLARE @JobRoleSQL NVARCHAR(MAX);
+
+    SET @JobRoleSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(ISNULL(X.JobRole, '''') AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT IPV.JobRole
+
+            FROM ' + @FullTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @JobRoleSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @JobRoleResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          8
+        , 'Renewal Validation'
+        , 'Job Roles Found'
+        , ISNULL(@JobRoleResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 12. CONTAINS AIG CHECK
+    ---------------------------------------------------------------------
+
+    DECLARE @AIGCount INT;
+    DECLARE @AIGSQL NVARCHAR(MAX);
+
+    SET @AIGSQL = '
+
+        SELECT
+            @Result = COUNT(*)
+
+        FROM ' + @FullTableName + '
+
+        WHERE OrganizationName IN
+        (
+              ''Esaress International group inc''
+            , ''AIG''
+            , ''AMERICAN INTERNATIONAL GROUP INC''
+            , ''Ameriprise''
+        )
+
+        OR MssTopParentID IN
+        (
+              ''10713283''
+            , ''642275''
+            , ''6019179''
+        )
+
+    ';
+
+    EXEC sp_executesql
+        @AIGSQL,
+        N'@Result INT OUTPUT',
+        @Result = @AIGCount OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          9
+        , 'Renewal Validation'
+        , 'Contains AIG'
+        , CAST(@AIGCount AS VARCHAR(100))
+        , CASE
+              WHEN @AIGCount = 0 THEN 'PASS'
+              ELSE 'FAIL'
+          END
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 13. PERSONAL DOMAIN CHECK
+    ---------------------------------------------------------------------
+
+    DECLARE @PersonalDomainCount INT;
+    DECLARE @PersonalDomainSQL NVARCHAR(MAX);
+
+    SET @PersonalDomainSQL = '
+
+        SELECT
+            @Result = COUNT(*)
+
+        FROM ' + @FullTableName + '
+
+        WHERE
+               emaildomain LIKE ''%hotmail.com%''
+            OR emaildomain LIKE ''%GMAIL.COM%''
+            OR emaildomain LIKE ''%yahoo.COM%''
+            OR emaildomain LIKE ''%aol.COM%''
+            OR emaildomain LIKE ''%live.com%''
+            OR emaildomain LIKE ''%spencerstuart.com%''
+
+    ';
+
+    EXEC sp_executesql
+        @PersonalDomainSQL,
+        N'@Result INT OUTPUT',
+        @Result = @PersonalDomainCount OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          10
+        , 'Renewal Validation'
+        , 'Contains Personal Domains'
+        , CAST(@PersonalDomainCount AS VARCHAR(100))
+        , CASE
+              WHEN @PersonalDomainCount = 0 THEN 'PASS'
+              ELSE 'FAIL'
+          END
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 14. QUEBEC VALIDATION
+    ---------------------------------------------------------------------
+
+    DECLARE @QuebecCount INT;
+    DECLARE @QuebecSQL NVARCHAR(MAX);
+
+    SET @QuebecSQL = '
+
+        SELECT
+            @Result = COUNT(*)
+
+        FROM ' + @FullTableName + '
+
+        WHERE
+               OrgStateOrProvince LIKE ''%quebec%''
+            OR OrgStateOrProvince LIKE ''%québec%''
+            OR OrgCity LIKE ''%quebec%''
+            OR OrgCity LIKE ''%québec%''
+            OR OrgStateOrProvince = ''qc''
+
+    ';
+
+    EXEC sp_executesql
+        @QuebecSQL,
+        N'@Result INT OUTPUT',
+        @Result = @QuebecCount OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          11
+        , 'Renewal Validation'
+        , 'Contains Quebec'
+        , CAST(@QuebecCount AS VARCHAR(100))
+        , CASE
+              WHEN @QuebecCount = 0 THEN 'PASS'
+              ELSE 'FAIL'
+          END
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 15. FULFILLMENT HISTORY CHECK
+    ---------------------------------------------------------------------
+
+    DECLARE @FulfillmentCount INT;
+
+    SELECT
+        @FulfillmentCount = COUNT(*)
+    FROM UCMP_FF.FulfillmentMaster WITH (NOLOCK)
+    WHERE CampaignLabel LIKE '%' + @CampaignID + '%';
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          12
+        , 'Fulfillment Validation'
+        , 'Previous Fulfillments Found'
+        , CAST(@FulfillmentCount AS VARCHAR(100))
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 16. BLOCKING REPORT VALIDATION
+    ---------------------------------------------------------------------
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          13
+        , 'Fulfillment Validation'
+        , 'Blocking Report Validation'
+        , 'Blocking report check completed for OJN ' + CAST(@OJN AS VARCHAR(100))
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 17. EXECUTION REPORT VALIDATION
+    ---------------------------------------------------------------------
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          14
+        , 'Fulfillment Validation'
+        , 'Execution Report Validation'
+        , 'Execution report check completed for OJN ' + CAST(@OJN AS VARCHAR(100))
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 18. CCM DATE / ACTIVITY ID
+    ---------------------------------------------------------------------
+
+    DECLARE @CCMResult NVARCHAR(MAX);
+
+    SELECT
+        @CCMResult =
+            STRING_AGG
+            (
+                CAST
+                (
+                    ISNULL(CAST(CellDropDate AS VARCHAR(100)), '')
+                    + ' - '
+                    + ISNULL(CampaignCode, '')
+                AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              CellDropDate
+            , CampaignCode
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          15
+        , 'Output Layout Validation'
+        , 'CCM Date / Activity ID'
+        , ISNULL(@CCMResult,'No Data Found')
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 19. OUTPUT LAYOUT COUNTS
+    ---------------------------------------------------------------------
+
+    DECLARE @EmailCount BIGINT;
+    DECLARE @IndividualCount BIGINT;
+
+    SELECT
+          @EmailCount = COUNT(DISTINCT EmailAddress)
+        , @IndividualCount = COUNT(DISTINCT MPAAIndividualID)
+
+    FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+    WHERE OrderJobNumber = @OJN;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          16
+        , 'Output Layout Validation'
+        , 'Distinct Email Count'
+        , CAST(@EmailCount AS VARCHAR(100))
+        , 'INFO'
+    );
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          17
+        , 'Output Layout Validation'
+        , 'Distinct MPAAIndividualID Count'
+        , CAST(@IndividualCount AS VARCHAR(100))
+        , 'INFO'
+    );
+
+
+    ---------------------------------------------------------------------
+    -- 20. OUTPUT LAYOUT GEO
+    ---------------------------------------------------------------------
+
+    DECLARE @OutputGeoResult NVARCHAR(MAX);
+
+    SELECT
+        @OutputGeoResult =
+            STRING_AGG
+            (
+                CAST
+                (
+                    ISNULL(INDArea,'')
+                    + ' - '
+                    + ISNULL(IndSubsidiary,'')
+                    + ' - '
+                    + ISNULL(IndCountry,'')
+                AS NVARCHAR(MAX))
+            , ' | '
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              INDArea
+            , IndSubsidiary
+            , IndCountry
+
+        FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+        WHERE OrderJobNumber = @OJN
+    ) X;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          18
+        , 'Output Layout Validation'
+        , 'Output GEO Values'
+        , ISNULL(@OutputGeoResult,'No Data Found')
+        , 'INFO'
+    );
+
+---------------------------------------------------------------------
+-- 21. RUSSIA / BELARUS / UKRAINE SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @RussiaSuppressionCount INT;
+
+DECLARE @RussiaSuppressionSQL NVARCHAR(MAX);
+
+SET @RussiaSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + '
+
+    WHERE SubsidiaryName IN
+    (
+          ''Russia''
+        , ''Belarus''
+        , ''Ukraine''
+    )
+
+';
+
+EXEC sp_executesql
+    @RussiaSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @RussiaSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      19
+    , 'General Suppression Validation'
+    , 'Russia/Belarus/Ukraine Suppression'
+    , CAST(@RussiaSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @RussiaSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 22. DMS SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @DMSSuppressionCount INT;
+
+DECLARE @DMSSuppressionSQL NVARCHAR(MAX);
+
+SET @DMSSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + ' A
+
+    INNER JOIN TENANT_JPN.z_DMSBlockedFromGMED IPV WITH (NOLOCK)
+        ON A.MPAAIndividualID = IPV.MPAAIndividualID
+
+';
+
+EXEC sp_executesql
+    @DMSSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @DMSSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      20
+    , 'General Suppression Validation'
+    , 'DMS Suppression'
+    , CAST(@DMSSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @DMSSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 23. INACTIVE EMAIL VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @InactiveEmailCount INT;
+
+DECLARE @InactiveEmailSQL NVARCHAR(MAX);
+
+SET @InactiveEmailSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + '
+
+    WHERE EmailAddress LIKE ''%INACTIVE%''
+
+';
+
+EXEC sp_executesql
+    @InactiveEmailSQL,
+    N'@Result INT OUTPUT',
+    @Result = @InactiveEmailCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      21
+    , 'General Suppression Validation'
+    , 'Inactive Emails'
+    , CAST(@InactiveEmailCount AS VARCHAR(100))
+    , CASE
+          WHEN @InactiveEmailCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 24. MICROSOFT DOMAIN VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @MicrosoftDomainCount INT;
+
+DECLARE @MicrosoftDomainSQL NVARCHAR(MAX);
+
+SET @MicrosoftDomainSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + '
+
+    WHERE
+           EmailAddress LIKE ''%@microsoft.com''
+        OR EmailAddress LIKE ''%@c-and-a.com''
+        OR OrganizationName IN
+           (
+                 ''Microsoft Test Account''
+               , ''Microsoft Test''
+               , ''Microsoft''
+           )
+
+';
+
+EXEC sp_executesql
+    @MicrosoftDomainSQL,
+    N'@Result INT OUTPUT',
+    @Result = @MicrosoftDomainCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      22
+    , 'General Suppression Validation'
+    , 'Microsoft Domain Suppression'
+    , CAST(@MicrosoftDomainCount AS VARCHAR(100))
+    , CASE
+          WHEN @MicrosoftDomainCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 25. INVALID EMAIL SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @InvalidEmailCount INT;
+
+DECLARE @InvalidEmailSQL NVARCHAR(MAX);
+
+SET @InvalidEmailSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + ' X
+
+    WHERE EXISTS
+    (
+        SELECT 1
+        FROM TENANT.z_IndSuppression WITH (NOLOCK)
+        WHERE MPAAIndividualID = X.MPAAIndividualID
+    )
+
+';
+
+EXEC sp_executesql
+    @InvalidEmailSQL,
+    N'@Result INT OUTPUT',
+    @Result = @InvalidEmailCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      23
+    , 'General Suppression Validation'
+    , 'Invalid Email Suppression'
+    , CAST(@InvalidEmailCount AS VARCHAR(100))
+    , CASE
+          WHEN @InvalidEmailCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 26. CANADA DOMAIN SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @CanadaSuppressionCount INT;
+
+DECLARE @CanadaSuppressionSQL NVARCHAR(MAX);
+
+SET @CanadaSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    WHERE SubsidiaryName IN (''Canada'')
+
+    AND MPAAIndividualID IN
+    (
+        SELECT MPAAIndividualID
+        FROM UCMP.DimIndividualProfile IP WITH (NOLOCK)
+
+        WHERE IP.SUBSIDIARYNAME = ''CANADA''
+
+        AND EMAILDOMAIN IN
+        (
+              ''@CA.IBM.COM''
+            , ''@MICROSOFT.COM''
+            , ''@ORACLE.COM''
+            , ''@VMWARE.COM''
+            , ''@GOOGLE.COM''
+            , ''@APPLE.CA''
+            , ''@SALESFORCE.COM''
+        )
+    )
+
+';
+
+EXEC sp_executesql
+    @CanadaSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @CanadaSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      24
+    , 'Canada Suppression Validation'
+    , 'Canada Domain Suppression'
+    , CAST(@CanadaSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @CanadaSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 27. CANADA EDUCATION SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @CanadaEDUSuppressionCount INT;
+
+DECLARE @CanadaEDUSuppressionSQL NVARCHAR(MAX);
+
+SET @CanadaEDUSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    WHERE SubsidiaryName IN (''Canada'')
+
+    AND
+    (
+           Jobtitle LIKE ''%teacher%''
+        OR Jobtitle LIKE ''%Assist%''
+        OR Jobtitle LIKE ''%faculty%''
+        OR Jobtitle LIKE ''%Student%''
+        OR Jobtitle LIKE ''%Professor%''
+        OR JobRole LIKE ''%teacher%''
+        OR JobRole LIKE ''%Assist%''
+        OR JobRole LIKE ''%faculty%''
+        OR JobRole LIKE ''%Student%''
+        OR JobRole LIKE ''%Professor%''
+    )
+
+';
+
+EXEC sp_executesql
+    @CanadaEDUSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @CanadaEDUSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      25
+    , 'Canada Suppression Validation'
+    , 'Canada Education Suppression'
+    , CAST(@CanadaEDUSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @CanadaEDUSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+    ---------------------------------------------------------------------
+    -- FINAL OUTPUT
+    ---------------------------------------------------------------------
+
+    SELECT
+          CheckCategory
+        , CheckName
+        , ActualResult
+        , Status
+    FROM #ValidationSummary
+    ORDER BY StepNumber;
+
+
+    ---------------------------------------------------------------------
+    -- CLEANUP
+    ---------------------------------------------------------------------
+
+    DROP TABLE #ValidationSummary;
+
+END
+GO
