@@ -3,6 +3,7 @@ ALTER PROCEDURE UCMP.ZZZ_Test_usp_ValidateCampaign
       @Schema           VARCHAR(100)
     , @CampaignID       VARCHAR(200)
     , @OJN              BIGINT = NULL
+    , @CampaignType     VARCHAR(100) = NULL
 )
 AS
 BEGIN
@@ -50,15 +51,15 @@ BEGIN
     -- 4. CAMPAIGN TABLE INFO
     ---------------------------------------------------------------------
 
-    INSERT INTO #ValidationSummary
-    VALUES
-    (
-          1
-        , 'Main Query'
-        , 'Campaign Table'
-        , @FullTableName
-        , 'INFO'
-    );
+      INSERT INTO #ValidationSummary
+      VALUES
+      (
+            0
+          , 'Execution Info'
+          , 'Campaign Type'
+          , ISNULL(@CampaignType,'NOT PROVIDED')
+          , 'INFO'
+      );
 
 
     ---------------------------------------------------------------------
@@ -1038,91 +1039,95 @@ VALUES
       END
 );
 
-    ---------------------------------------------------------------------
-    -- 28. TPID VALIDATION
-    ---------------------------------------------------------------------
+  ---------------------------------------------------------------------
+-- 28. TPID VALIDATION
+---------------------------------------------------------------------
 
-    DECLARE @TPIDValidationResult NVARCHAR(MAX);
+DECLARE @TPIDValidationResult NVARCHAR(MAX);
 
-    DECLARE @TPIDValidationSQL NVARCHAR(MAX);
+DECLARE @TPIDValidationSQL NVARCHAR(MAX);
 
-    SET @TPIDValidationSQL = '
+SET @TPIDValidationSQL = '
 
-        SELECT
-            @Result =
-                STRING_AGG(
-                    CAST(ISNULL(X.MSSalesTopParentID, '''') AS NVARCHAR(MAX))
-                , '' | ''
-                )
+    SELECT
+        @Result =
+            STRING_AGG(
+                CAST(ISNULL(X.MSSalesTopParentID, '''') AS NVARCHAR(MAX))
+            , '' | ''
+            )
 
-        FROM
-        (
-            SELECT DISTINCT
-                  MSSalesTopParentID
-
-            FROM ' + @FullTableName + '
-
-            WHERE MSSalesTopParentID IS NOT NULL
-        ) X
-
-    ';
-
-    EXEC sp_executesql
-        @TPIDValidationSQL,
-        N'@Result NVARCHAR(MAX) OUTPUT',
-        @Result = @TPIDValidationResult OUTPUT;
-
-
-    INSERT INTO #ValidationSummary
-    VALUES
+    FROM
     (
-          26
-        , 'TPID Validation'
-        , 'Distinct TPIDs'
-        , ISNULL(@TPIDValidationResult,'No TPIDs Found')
-        , 'INFO'
-    );
+        SELECT DISTINCT
+              OPV.MSSalesTopParentID
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+            ON A.MPAAOrganizationID = OPV.MPAAOrganizationID
+
+        WHERE OPV.MSSalesTopParentID IS NOT NULL
+    ) X
+
+';
+
+EXEC sp_executesql
+    @TPIDValidationSQL,
+    N'@Result NVARCHAR(MAX) OUTPUT',
+    @Result = @TPIDValidationResult OUTPUT;
 
 
-    ---------------------------------------------------------------------
-    -- 29. NULL TPID VALIDATION
-    ---------------------------------------------------------------------
-
-    DECLARE @NullTPIDCount INT;
-
-    DECLARE @NullTPIDSQL NVARCHAR(MAX);
-
-    SET @NullTPIDSQL = '
-
-        SELECT
-            @Result = COUNT(*)
-
-        FROM ' + @FullTableName + '
-
-        WHERE MSSalesTopParentID IS NULL
-
-    ';
-
-    EXEC sp_executesql
-        @NullTPIDSQL,
-        N'@Result INT OUTPUT',
-        @Result = @NullTPIDCount OUTPUT;
+INSERT INTO #ValidationSummary
+VALUES
+(
+      26
+    , 'TPID Validation'
+    , 'Distinct TPIDs'
+    , ISNULL(@TPIDValidationResult,'No TPIDs Found')
+    , 'INFO'
+);
 
 
-    INSERT INTO #ValidationSummary
-    VALUES
-    (
-          27
-        , 'TPID Validation'
-        , 'Null TPIDs'
-        , CAST(@NullTPIDCount AS VARCHAR(100))
-        , CASE
-              WHEN @NullTPIDCount = 0 THEN 'PASS'
-              ELSE 'FAIL'
-          END
-    );
+---------------------------------------------------------------------
+-- 29. NULL TPID VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @NullTPIDCount INT;
+
+DECLARE @NullTPIDSQL NVARCHAR(MAX);
+
+SET @NullTPIDSQL = '
+
+    SELECT
+        @Result = COUNT(*)
+
+    FROM ' + @FullTableName + ' A
+
+    LEFT JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+        ON A.MPAAOrganizationID = OPV.MPAAOrganizationID
+
+    WHERE OPV.MSSalesTopParentID IS NULL
+
+';
+
+EXEC sp_executesql
+    @NullTPIDSQL,
+    N'@Result INT OUTPUT',
+    @Result = @NullTPIDCount OUTPUT;
 
 
+INSERT INTO #ValidationSummary
+VALUES
+(
+      27
+    , 'TPID Validation'
+    , 'Null TPIDs'
+    , CAST(@NullTPIDCount AS VARCHAR(100))
+    , CASE
+          WHEN @NullTPIDCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
     ---------------------------------------------------------------------
     -- 30. PARTNER GEO VALIDATION
     ---------------------------------------------------------------------
