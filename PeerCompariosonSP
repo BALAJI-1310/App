@@ -714,7 +714,329 @@ BEGIN
         , ISNULL(@OutputGeoResult,'No Data Found')
         , 'INFO'
     );
+---------------------------------------------------------------------
+-- 21. RUSSIA / BELARUS / UKRAINE SUPPRESSION
+---------------------------------------------------------------------
 
+DECLARE @RussiaSuppressionCount INT;
+
+DECLARE @RussiaSuppressionSQL NVARCHAR(MAX);
+
+SET @RussiaSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + '
+
+    WHERE SubsidiaryName IN
+    (
+          ''Russia''
+        , ''Belarus''
+        , ''Ukraine''
+    )
+
+';
+
+EXEC sp_executesql
+    @RussiaSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @RussiaSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      19
+    , 'General Suppression Validation'
+    , 'Russia/Belarus/Ukraine Suppression'
+    , CAST(@RussiaSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @RussiaSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 22. DMS SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @DMSSuppressionCount INT;
+
+DECLARE @DMSSuppressionSQL NVARCHAR(MAX);
+
+SET @DMSSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + ' A
+
+    INNER JOIN TENANT_JPN.z_DMSBlockedFromGMED IPV WITH (NOLOCK)
+        ON A.MPAAIndividualID = IPV.MPAAIndividualID
+
+';
+
+EXEC sp_executesql
+    @DMSSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @DMSSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      20
+    , 'General Suppression Validation'
+    , 'DMS Suppression'
+    , CAST(@DMSSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @DMSSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 23. INACTIVE EMAIL VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @InactiveEmailCount INT;
+
+DECLARE @InactiveEmailSQL NVARCHAR(MAX);
+
+SET @InactiveEmailSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + '
+
+    WHERE EmailAddress LIKE ''%INACTIVE%''
+
+';
+
+EXEC sp_executesql
+    @InactiveEmailSQL,
+    N'@Result INT OUTPUT',
+    @Result = @InactiveEmailCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      21
+    , 'General Suppression Validation'
+    , 'Inactive Emails'
+    , CAST(@InactiveEmailCount AS VARCHAR(100))
+    , CASE
+          WHEN @InactiveEmailCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 24. MICROSOFT DOMAIN VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @MicrosoftDomainCount INT;
+
+DECLARE @MicrosoftDomainSQL NVARCHAR(MAX);
+
+SET @MicrosoftDomainSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + '
+
+    WHERE
+           EmailAddress LIKE ''%@microsoft.com''
+        OR EmailAddress LIKE ''%@c-and-a.com''
+        OR OrganizationName IN
+           (
+                 ''Microsoft Test Account''
+               , ''Microsoft Test''
+               , ''Microsoft''
+           )
+
+';
+
+EXEC sp_executesql
+    @MicrosoftDomainSQL,
+    N'@Result INT OUTPUT',
+    @Result = @MicrosoftDomainCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      22
+    , 'General Suppression Validation'
+    , 'Microsoft Domain Suppression'
+    , CAST(@MicrosoftDomainCount AS VARCHAR(100))
+    , CASE
+          WHEN @MicrosoftDomainCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 25. INVALID EMAIL SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @InvalidEmailCount INT;
+
+DECLARE @InvalidEmailSQL NVARCHAR(MAX);
+
+SET @InvalidEmailSQL = '
+
+    SELECT
+        @Result = COUNT(1)
+
+    FROM ' + @FullTableName + ' X
+
+    WHERE EXISTS
+    (
+        SELECT 1
+        FROM TENANT.z_IndSuppression WITH (NOLOCK)
+        WHERE MPAAIndividualID = X.MPAAIndividualID
+    )
+
+';
+
+EXEC sp_executesql
+    @InvalidEmailSQL,
+    N'@Result INT OUTPUT',
+    @Result = @InvalidEmailCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      23
+    , 'General Suppression Validation'
+    , 'Invalid Email Suppression'
+    , CAST(@InvalidEmailCount AS VARCHAR(100))
+    , CASE
+          WHEN @InvalidEmailCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 26. CANADA DOMAIN SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @CanadaSuppressionCount INT;
+
+DECLARE @CanadaSuppressionSQL NVARCHAR(MAX);
+
+SET @CanadaSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    WHERE SubsidiaryName IN (''Canada'')
+
+    AND MPAAIndividualID IN
+    (
+        SELECT MPAAIndividualID
+        FROM UCMP.DimIndividualProfile IP WITH (NOLOCK)
+
+        WHERE IP.SUBSIDIARYNAME = ''CANADA''
+
+        AND EMAILDOMAIN IN
+        (
+              ''@CA.IBM.COM''
+            , ''@MICROSOFT.COM''
+            , ''@ORACLE.COM''
+            , ''@VMWARE.COM''
+            , ''@GOOGLE.COM''
+            , ''@APPLE.CA''
+            , ''@SALESFORCE.COM''
+        )
+    )
+
+';
+
+EXEC sp_executesql
+    @CanadaSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @CanadaSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      24
+    , 'Canada Suppression Validation'
+    , 'Canada Domain Suppression'
+    , CAST(@CanadaSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @CanadaSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 27. CANADA EDUCATION SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @CanadaEDUSuppressionCount INT;
+
+DECLARE @CanadaEDUSuppressionSQL NVARCHAR(MAX);
+
+SET @CanadaEDUSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    WHERE SubsidiaryName IN (''Canada'')
+
+    AND
+    (
+           Jobtitle LIKE ''%teacher%''
+        OR Jobtitle LIKE ''%Assist%''
+        OR Jobtitle LIKE ''%faculty%''
+        OR Jobtitle LIKE ''%Student%''
+        OR Jobtitle LIKE ''%Professor%''
+        OR JobRole LIKE ''%teacher%''
+        OR JobRole LIKE ''%Assist%''
+        OR JobRole LIKE ''%faculty%''
+        OR JobRole LIKE ''%Student%''
+        OR JobRole LIKE ''%Professor%''
+    )
+
+';
+
+EXEC sp_executesql
+    @CanadaEDUSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @CanadaEDUSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      25
+    , 'Canada Suppression Validation'
+    , 'Canada Education Suppression'
+    , CAST(@CanadaEDUSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @CanadaEDUSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
 
     ---------------------------------------------------------------------
     -- FINAL OUTPUT
