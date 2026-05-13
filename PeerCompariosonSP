@@ -1038,8 +1038,7 @@ VALUES
           ELSE 'FAIL'
       END
 );
-
-  ---------------------------------------------------------------------
+---------------------------------------------------------------------
 -- 28. TPID VALIDATION
 ---------------------------------------------------------------------
 
@@ -1128,256 +1127,682 @@ VALUES
           ELSE 'FAIL'
       END
 );
-    ---------------------------------------------------------------------
-    -- 30. PARTNER GEO VALIDATION
-    ---------------------------------------------------------------------
-
-    DECLARE @PartnerGeoResult NVARCHAR(MAX);
-
-    DECLARE @PartnerGeoSQL NVARCHAR(MAX);
-
-    SET @PartnerGeoSQL = '
-
-        SELECT
-            @Result =
-                STRING_AGG(
-                    CAST(
-                        ISNULL(X.AreaName, '''')
-                        + '' - ''
-                        + ISNULL(X.SubsidiaryName, '''')
-                    AS NVARCHAR(MAX))
-                , '' | ''
-                )
-
-        FROM
-        (
-            SELECT DISTINCT
-                  IPV.AreaName
-                , IPV.SubsidiaryName
-
-            FROM ' + @FullTableName + ' A
-
-            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
-                ON IPV.MPAAIndividualID = A.MPAAIndividualID
-        ) X
-
-    ';
-
-    EXEC sp_executesql
-        @PartnerGeoSQL,
-        N'@Result NVARCHAR(MAX) OUTPUT',
-        @Result = @PartnerGeoResult OUTPUT;
 
 
-    INSERT INTO #ValidationSummary
-    VALUES
+---------------------------------------------------------------------
+-- 30. PARTNER GEO VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @PartnerGeoResult NVARCHAR(MAX);
+
+DECLARE @PartnerGeoSQL NVARCHAR(MAX);
+
+SET @PartnerGeoSQL = '
+
+    SELECT
+        @Result =
+            STRING_AGG(
+                CAST(
+                    ISNULL(X.AreaName, '''')
+                    + '' - ''
+                    + ISNULL(X.SubsidiaryName, '''')
+                AS NVARCHAR(MAX))
+            , '' | ''
+            )
+
+    FROM
     (
-          28
-        , 'Partner Validation'
-        , 'Partner GEO Values'
-        , ISNULL(@PartnerGeoResult,'No Data Found')
-        , 'INFO'
-    );
+        SELECT DISTINCT
+              IPV.AreaName
+            , IPV.SubsidiaryName
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+            ON IPV.MPAAIndividualID = A.MPAAIndividualID
+    ) X
+
+';
+
+EXEC sp_executesql
+    @PartnerGeoSQL,
+    N'@Result NVARCHAR(MAX) OUTPUT',
+    @Result = @PartnerGeoResult OUTPUT;
 
 
-    ---------------------------------------------------------------------
-    -- 31. PARTNER AUDIENCE VALIDATION
-    ---------------------------------------------------------------------
-
-    DECLARE @PartnerAudienceResult NVARCHAR(MAX);
-
-    DECLARE @PartnerAudienceSQL NVARCHAR(MAX);
-
-    SET @PartnerAudienceSQL = '
-
-        SELECT
-            @Result =
-                STRING_AGG(
-                    CAST(
-                        ISNULL(X.MarketingAudienceCategory, '''')
-                        + '' - ''
-                        + ISNULL(X.MarketingAudience, '''')
-                    AS NVARCHAR(MAX))
-                , '' | ''
-                )
-
-        FROM
-        (
-            SELECT DISTINCT
-                  IPV.MarketingAudienceCategory
-                , IPV.MarketingAudience
-
-            FROM ' + @FullTableName + ' A
-
-            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
-                ON IPV.MPAAIndividualID = A.MPAAIndividualID
-        ) X
-
-    ';
-
-    EXEC sp_executesql
-        @PartnerAudienceSQL,
-        N'@Result NVARCHAR(MAX) OUTPUT',
-        @Result = @PartnerAudienceResult OUTPUT;
+INSERT INTO #ValidationSummary
+VALUES
+(
+      28
+    , 'Partner Validation'
+    , 'Partner GEO Values'
+    , ISNULL(@PartnerGeoResult,'No Data Found')
+    , 'INFO'
+);
 
 
-    INSERT INTO #ValidationSummary
-    VALUES
+---------------------------------------------------------------------
+-- 31. PARTNER AUDIENCE VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @PartnerAudienceResult NVARCHAR(MAX);
+
+DECLARE @PartnerAudienceSQL NVARCHAR(MAX);
+
+SET @PartnerAudienceSQL = '
+
+    SELECT
+        @Result =
+            STRING_AGG(
+                CAST(
+                    ISNULL(X.MarketingAudienceCategory, '''')
+                    + '' - ''
+                    + ISNULL(X.MarketingAudience, '''')
+                AS NVARCHAR(MAX))
+            , '' | ''
+            )
+
+    FROM
     (
-          29
-        , 'Partner Validation'
-        , 'Partner Audience Values'
-        , ISNULL(@PartnerAudienceResult,'No Data Found')
-        , 'INFO'
-    );
+        SELECT DISTINCT
+              IPV.MarketingAudienceCategory
+            , IPV.MarketingAudience
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+            ON IPV.MPAAIndividualID = A.MPAAIndividualID
+    ) X
+
+';
+
+EXEC sp_executesql
+    @PartnerAudienceSQL,
+    N'@Result NVARCHAR(MAX) OUTPUT',
+    @Result = @PartnerAudienceResult OUTPUT;
 
 
-    ---------------------------------------------------------------------
-    -- 32. PARTNER SEGMENT VALIDATION
-    ---------------------------------------------------------------------
-
-    DECLARE @PartnerSegmentResult NVARCHAR(MAX);
-
-    DECLARE @PartnerSegmentSQL NVARCHAR(MAX);
-
-    SET @PartnerSegmentSQL = '
-
-        SELECT
-            @Result =
-                STRING_AGG(
-                    CAST(
-                        ISNULL(X.SegmentName, '''')
-                        + '' - ''
-                        + ISNULL(X.SubSegmentName, '''')
-                    AS NVARCHAR(MAX))
-                , '' | ''
-                )
-
-        FROM
-        (
-            SELECT DISTINCT
-                  IPV.SegmentName
-                , IPV.SubSegmentName
-
-            FROM ' + @FullTableName + ' A
-
-            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
-                ON IPV.MPAAIndividualID = A.MPAAIndividualID
-        ) X
-
-    ';
-
-    EXEC sp_executesql
-        @PartnerSegmentSQL,
-        N'@Result NVARCHAR(MAX) OUTPUT',
-        @Result = @PartnerSegmentResult OUTPUT;
+INSERT INTO #ValidationSummary
+VALUES
+(
+      29
+    , 'Partner Validation'
+    , 'Partner Audience Values'
+    , ISNULL(@PartnerAudienceResult,'No Data Found')
+    , 'INFO'
+);
 
 
-    INSERT INTO #ValidationSummary
-    VALUES
+---------------------------------------------------------------------
+-- 32. PARTNER SEGMENT VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @PartnerSegmentResult NVARCHAR(MAX);
+
+DECLARE @PartnerSegmentSQL NVARCHAR(MAX);
+
+SET @PartnerSegmentSQL = '
+
+    SELECT
+        @Result =
+            STRING_AGG(
+                CAST(
+                    ISNULL(X.SegmentName, '''')
+                    + '' - ''
+                    + ISNULL(X.SubSegmentName, '''')
+                AS NVARCHAR(MAX))
+            , '' | ''
+            )
+
+    FROM
     (
-          30
-        , 'Partner Validation'
-        , 'Partner Segment Values'
-        , ISNULL(@PartnerSegmentResult,'No Data Found')
-        , 'INFO'
-    );
+        SELECT DISTINCT
+              IPV.SegmentName
+            , IPV.SubSegmentName
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+            ON IPV.MPAAIndividualID = A.MPAAIndividualID
+    ) X
+
+';
+
+EXEC sp_executesql
+    @PartnerSegmentSQL,
+    N'@Result NVARCHAR(MAX) OUTPUT',
+    @Result = @PartnerSegmentResult OUTPUT;
 
 
-    ---------------------------------------------------------------------
-    -- 33. PARTNER INDUSTRY VALIDATION
-    ---------------------------------------------------------------------
-
-    DECLARE @PartnerIndustryResult NVARCHAR(MAX);
-
-    DECLARE @PartnerIndustrySQL NVARCHAR(MAX);
-
-    SET @PartnerIndustrySQL = '
-
-        SELECT
-            @Result =
-                STRING_AGG(
-                    CAST(
-                        ISNULL(X.IndustryName, '''')
-                        + '' - ''
-                        + ISNULL(X.VerticalName, '''')
-                    AS NVARCHAR(MAX))
-                , '' | ''
-                )
-
-        FROM
-        (
-            SELECT DISTINCT
-                  OPV.IndustryName
-                , OPV.VerticalName
-
-            FROM ' + @FullTableName + ' A
-
-            INNER JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
-                ON OPV.MPAAOrganizationID = A.MPAAOrganizationID
-        ) X
-
-    ';
-
-    EXEC sp_executesql
-        @PartnerIndustrySQL,
-        N'@Result NVARCHAR(MAX) OUTPUT',
-        @Result = @PartnerIndustryResult OUTPUT;
+INSERT INTO #ValidationSummary
+VALUES
+(
+      30
+    , 'Partner Validation'
+    , 'Partner Segment Values'
+    , ISNULL(@PartnerSegmentResult,'No Data Found')
+    , 'INFO'
+);
 
 
-    INSERT INTO #ValidationSummary
-    VALUES
+---------------------------------------------------------------------
+-- 33. PARTNER INDUSTRY VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @PartnerIndustryResult NVARCHAR(MAX);
+
+DECLARE @PartnerIndustrySQL NVARCHAR(MAX);
+
+SET @PartnerIndustrySQL = '
+
+    SELECT
+        @Result =
+            STRING_AGG(
+                CAST(
+                    ISNULL(X.IndustryName, '''')
+                    + '' - ''
+                    + ISNULL(X.VerticalName, '''')
+                AS NVARCHAR(MAX))
+            , '' | ''
+            )
+
+    FROM
     (
-          31
-        , 'Partner Validation'
-        , 'Partner Industry Values'
-        , ISNULL(@PartnerIndustryResult,'No Data Found')
-        , 'INFO'
-    );
+        SELECT DISTINCT
+              OPV.IndustryName
+            , OPV.VerticalName
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+            ON OPV.MPAAOrganizationID = A.MPAAOrganizationID
+    ) X
+
+';
+
+EXEC sp_executesql
+    @PartnerIndustrySQL,
+    N'@Result NVARCHAR(MAX) OUTPUT',
+    @Result = @PartnerIndustryResult OUTPUT;
 
 
-    ---------------------------------------------------------------------
-    -- 34. PARTNER COMMUNICATION TYPE VALIDATION
-    ---------------------------------------------------------------------
-
-    DECLARE @PartnerCommunicationResult NVARCHAR(MAX);
-
-    DECLARE @PartnerCommunicationSQL NVARCHAR(MAX);
-
-    SET @PartnerCommunicationSQL = '
-
-        SELECT
-            @Result =
-                STRING_AGG(
-                    CAST(ISNULL(X.CommunicationType, '''') AS NVARCHAR(MAX))
-                , '' | ''
-                )
-
-        FROM
-        (
-            SELECT DISTINCT
-                  CommunicationType
-
-            FROM ' + @FullTableName + '
-        ) X
-
-    ';
-
-    EXEC sp_executesql
-        @PartnerCommunicationSQL,
-        N'@Result NVARCHAR(MAX) OUTPUT',
-        @Result = @PartnerCommunicationResult OUTPUT;
+INSERT INTO #ValidationSummary
+VALUES
+(
+      31
+    , 'Partner Validation'
+    , 'Partner Industry Values'
+    , ISNULL(@PartnerIndustryResult,'No Data Found')
+    , 'INFO'
+);
 
 
-    INSERT INTO #ValidationSummary
-    VALUES
+---------------------------------------------------------------------
+-- 34. PARTNER COMMUNICATION TYPE VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @PartnerCommunicationResult NVARCHAR(MAX);
+
+DECLARE @PartnerCommunicationSQL NVARCHAR(MAX);
+
+SET @PartnerCommunicationSQL = '
+
+    SELECT
+        @Result =
+            STRING_AGG(
+                CAST(ISNULL(X.CommunicationType, '''') AS NVARCHAR(MAX))
+            , '' | ''
+            )
+
+    FROM
     (
-          32
-        , 'Partner Validation'
-        , 'Partner Communication Types'
-        , ISNULL(@PartnerCommunicationResult,'No Data Found')
-        , 'INFO'
-    );
+        SELECT DISTINCT
+              CommunicationType
+
+        FROM ' + @FullTableName + '
+    ) X
+
+';
+
+EXEC sp_executesql
+    @PartnerCommunicationSQL,
+    N'@Result NVARCHAR(MAX) OUTPUT',
+    @Result = @PartnerCommunicationResult OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      32
+    , 'Partner Validation'
+    , 'Partner Communication Types'
+    , ISNULL(@PartnerCommunicationResult,'No Data Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 35. PARTNERONEID VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @PartnerOneIDResult NVARCHAR(MAX);
+
+DECLARE @PartnerOneIDSQL NVARCHAR(MAX);
+
+SET @PartnerOneIDSQL = '
+
+    SELECT
+        @Result =
+            STRING_AGG(
+                CAST(ISNULL(X.PartnerOneID, '''') AS NVARCHAR(MAX))
+            , '' | ''
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              OPV.PartnerOneID
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+            ON A.MPAAOrganizationID = OPV.MPAAOrganizationID
+
+        WHERE OPV.PartnerOneID IS NOT NULL
+    ) X
+
+';
+
+EXEC sp_executesql
+    @PartnerOneIDSQL,
+    N'@Result NVARCHAR(MAX) OUTPUT',
+    @Result = @PartnerOneIDResult OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      33
+    , 'PartnerOneID Validation'
+    , 'Distinct PartnerOneIDs'
+    , ISNULL(@PartnerOneIDResult,'No PartnerOneIDs Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 36. NULL PARTNERONEID VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @NullPartnerOneIDCount INT;
+
+DECLARE @NullPartnerOneIDSQL NVARCHAR(MAX);
+
+SET @NullPartnerOneIDSQL = '
+
+    SELECT
+        @Result = COUNT(*)
+
+    FROM ' + @FullTableName + ' A
+
+    LEFT JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+        ON A.MPAAOrganizationID = OPV.MPAAOrganizationID
+
+    WHERE OPV.PartnerOneID IS NULL
+
+';
+
+EXEC sp_executesql
+    @NullPartnerOneIDSQL,
+    N'@Result INT OUTPUT',
+    @Result = @NullPartnerOneIDCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      34
+    , 'PartnerOneID Validation'
+    , 'Null PartnerOneIDs'
+    , CAST(@NullPartnerOneIDCount AS VARCHAR(100))
+    , CASE
+          WHEN @NullPartnerOneIDCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+---------------------------------------------------------------------
+-- 35. OUTPUT LAYOUT PARTNER GEO VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @OutputPartnerGeoResult NVARCHAR(MAX);
+
+SELECT
+    @OutputPartnerGeoResult =
+        STRING_AGG
+        (
+            CAST
+            (
+                ISNULL(INDArea,'')
+                + ' - '
+                + ISNULL(IndSubsidiary,'')
+                + ' - '
+                + ISNULL(IndCountry,'')
+            AS NVARCHAR(MAX))
+        , ' | '
+        )
+
+FROM
+(
+    SELECT DISTINCT
+          INDArea
+        , IndSubsidiary
+        , IndCountry
+
+    FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+    WHERE OrderJobNumber = @OJN
+) X;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      35
+    , 'Output Layout Partner Validation'
+    , 'Output Partner GEO Values'
+    , ISNULL(@OutputPartnerGeoResult,'No Data Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 36. OUTPUT LAYOUT PARTNER AUDIENCE VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @OutputPartnerAudienceResult NVARCHAR(MAX);
+
+SELECT
+    @OutputPartnerAudienceResult =
+        STRING_AGG
+        (
+            CAST
+            (
+                ISNULL(STAC_CustomerGroup,'')
+                + ' - '
+                + ISNULL(STAC_MarketingAudience,'')
+            AS NVARCHAR(MAX))
+        , ' | '
+        )
+
+FROM
+(
+    SELECT DISTINCT
+          STAC_CustomerGroup
+        , STAC_MarketingAudience
+
+    FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+    WHERE OrderJobNumber = @OJN
+) X;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      36
+    , 'Output Layout Partner Validation'
+    , 'Output Partner Audience Values'
+    , ISNULL(@OutputPartnerAudienceResult,'No Data Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 37. OUTPUT LAYOUT PARTNER SEGMENT VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @OutputPartnerSegmentResult NVARCHAR(MAX);
+
+SELECT
+    @OutputPartnerSegmentResult =
+        STRING_AGG
+        (
+            CAST
+            (
+                ISNULL(InferredSegment,'')
+                + ' - '
+                + ISNULL(InferredSubSegment,'')
+            AS NVARCHAR(MAX))
+        , ' | '
+        )
+
+FROM
+(
+    SELECT DISTINCT
+          InferredSegment
+        , InferredSubSegment
+
+    FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+    WHERE OrderJobNumber = @OJN
+) X;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      37
+    , 'Output Layout Partner Validation'
+    , 'Output Partner Segment Values'
+    , ISNULL(@OutputPartnerSegmentResult,'No Data Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 38. OUTPUT LAYOUT PARTNER INDUSTRY VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @OutputPartnerIndustryResult NVARCHAR(MAX);
+
+SELECT
+    @OutputPartnerIndustryResult =
+        STRING_AGG
+        (
+            CAST
+            (
+                ISNULL(IndustryName,'')
+                + ' - '
+                + ISNULL(VerticalName,'')
+            AS NVARCHAR(MAX))
+        , ' | '
+        )
+
+FROM
+(
+    SELECT DISTINCT
+          IndustryName
+        , VerticalName
+
+    FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+    WHERE OrderJobNumber = @OJN
+) X;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      38
+    , 'Output Layout Partner Validation'
+    , 'Output Partner Industry Values'
+    , ISNULL(@OutputPartnerIndustryResult,'No Data Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 39. OUTPUT LAYOUT PARTNER COMMUNICATION VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @OutputPartnerCommunicationResult NVARCHAR(MAX);
+
+SELECT
+    @OutputPartnerCommunicationResult =
+        STRING_AGG
+        (
+            CAST(ISNULL(IsPromotionalEMEligible,'') AS NVARCHAR(MAX))
+        , ' | '
+        )
+
+FROM
+(
+    SELECT DISTINCT
+          IsPromotionalEMEligible
+
+    FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+    WHERE OrderJobNumber = @OJN
+) X;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      39
+    , 'Output Layout Partner Validation'
+    , 'Output Partner Communication Values'
+    , ISNULL(@OutputPartnerCommunicationResult,'No Data Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 40. OUTPUT LAYOUT TPID VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @OutputTPIDResult NVARCHAR(MAX);
+
+SELECT
+    @OutputTPIDResult =
+        STRING_AGG
+        (
+            CAST(ISNULL(MSSalesTopParentID,'') AS NVARCHAR(MAX))
+        , ' | '
+        )
+
+FROM
+(
+    SELECT DISTINCT
+          MSSalesTopParentID
+
+    FROM UCMP_FF.OutputLayout WITH (NOLOCK)
+
+    WHERE OrderJobNumber = @OJN
+) X;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      40
+    , 'Output Layout Partner Validation'
+    , 'Output TPID Values'
+    , ISNULL(@OutputTPIDResult,'No Data Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 41. PARTNERONEID VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @PartnerOneIDResult NVARCHAR(MAX);
+
+DECLARE @PartnerOneIDSQL NVARCHAR(MAX);
+
+SET @PartnerOneIDSQL = '
+
+    SELECT
+        @Result =
+            STRING_AGG(
+                CAST(ISNULL(X.PartnerOneID, '''') AS NVARCHAR(MAX))
+            , '' | ''
+            )
+
+    FROM
+    (
+        SELECT DISTINCT
+              OPV.PartnerOneID
+
+        FROM ' + @FullTableName + ' A
+
+        INNER JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+            ON A.MPAAOrganizationID = OPV.MPAAOrganizationID
+
+        WHERE OPV.PartnerOneID IS NOT NULL
+    ) X
+
+';
+
+EXEC sp_executesql
+    @PartnerOneIDSQL,
+    N'@Result NVARCHAR(MAX) OUTPUT',
+    @Result = @PartnerOneIDResult OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      41
+    , 'PartnerOneID Validation'
+    , 'Distinct PartnerOneIDs'
+    , ISNULL(@PartnerOneIDResult,'No PartnerOneIDs Found')
+    , 'INFO'
+);
+
+
+---------------------------------------------------------------------
+-- 42. NULL PARTNERONEID VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @NullPartnerOneIDCount INT;
+
+DECLARE @NullPartnerOneIDSQL NVARCHAR(MAX);
+
+SET @NullPartnerOneIDSQL = '
+
+    SELECT
+        @Result = COUNT(*)
+
+    FROM ' + @FullTableName + ' A
+
+    LEFT JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+        ON A.MPAAOrganizationID = OPV.MPAAOrganizationID
+
+    WHERE OPV.PartnerOneID IS NULL
+
+';
+
+EXEC sp_executesql
+    @NullPartnerOneIDSQL,
+    N'@Result INT OUTPUT',
+    @Result = @NullPartnerOneIDCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      42
+    , 'PartnerOneID Validation'
+    , 'Null PartnerOneIDs'
+    , CAST(@NullPartnerOneIDCount AS VARCHAR(100))
+    , CASE
+          WHEN @NullPartnerOneIDCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
 
 
     ---------------------------------------------------------------------
