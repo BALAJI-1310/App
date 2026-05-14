@@ -3,7 +3,9 @@ ALTER PROCEDURE UCMP.ZZZ_Test_usp_ValidateCampaign
       @Schema           VARCHAR(100)
     , @CampaignID       VARCHAR(200)
     , @OJN              BIGINT = NULL
-    , @CampaignType     VARCHAR(100) = NULL
+    @CampaignType VARCHAR(100) = NULL,
+    @PartnerInputTable VARCHAR(500) = NULL,
+    @PartnerInputColumn VARCHAR(200) = NULL
 )
 AS
 BEGIN
@@ -1622,6 +1624,80 @@ VALUES
     , ISNULL(@OutputTPIDResult,'No Data Found')
     , 'INFO'
 );
+
+---------------------------------------------------------------------
+-- 41. WRONG PARTNERONEID VALIDATION
+---------------------------------------------------------------------
+
+IF @PartnerInputTable IS NULL
+   OR @PartnerInputColumn IS NULL
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          41
+        , 'PartnerOneID Validation'
+        , 'Contains Wrong PartnerOneIDs'
+        , 'No input table passed'
+        , 'SKIP'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    DECLARE @WrongPartnerCount INT;
+
+    DECLARE @WrongPartnerSQL NVARCHAR(MAX);
+
+    SET @WrongPartnerSQL = '
+
+        SELECT
+            @Result = COUNT(*)
+
+        FROM ' + @FullTableName + '
+
+        WHERE
+            VOrganizationID NOT IN
+            (
+                SELECT DISTINCT
+                       ' + QUOTENAME(@PartnerInputColumn) + '
+
+                FROM ' + @PartnerInputTable + '
+            )
+
+        AND PartnerID NOT IN
+            (
+                SELECT DISTINCT
+                       ' + QUOTENAME(@PartnerInputColumn) + '
+
+                FROM ' + @PartnerInputTable + '
+            )
+
+    ';
+
+    EXEC sp_executesql
+        @WrongPartnerSQL,
+        N'@Result INT OUTPUT',
+        @Result = @WrongPartnerCount OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          41
+        , 'PartnerOneID Validation'
+        , 'Contains Wrong PartnerOneIDs'
+        , CAST(@WrongPartnerCount AS VARCHAR(100))
+        , CASE
+              WHEN @WrongPartnerCount = 0 THEN 'PASS'
+              ELSE 'FAIL'
+          END
+    );
+
+END
     ---------------------------------------------------------------------
     -- FINAL OUTPUT
     ---------------------------------------------------------------------
