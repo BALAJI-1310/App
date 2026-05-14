@@ -2,7 +2,7 @@ ALTER PROCEDURE UCMP.ZZZ_Test_usp_ValidateCampaign
 (
       @Schema           VARCHAR(100)
     , @CampaignID       VARCHAR(200)
-    , @OJN              BIGINT = NULL
+    , @OJN              BIGINT = NULL,
     @CampaignType VARCHAR(100) = NULL,
     @PartnerInputTable VARCHAR(500) = NULL,
     @PartnerInputColumn VARCHAR(200) = NULL
@@ -1698,6 +1698,448 @@ BEGIN
     );
 
 END
+---------------------------------------------------------------------
+-- 43. SINGAPORE GATECRASH SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @SingaporeGateCrashCount INT;
+
+DECLARE @SingaporeGateCrashSQL NVARCHAR(MAX);
+
+SET @SingaporeGateCrashSQL = '
+
+    SELECT
+        @Result = COUNT(IPV.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+        ON A.MPAAIndividualID = IPV.MPAAIndividualID
+
+    INNER JOIN [TENANT_' + @Schema + '].Z_SGP_GateCrasherList G WITH (NOLOCK)
+        ON IPV.EmailAddress = G.EmailAddress
+
+    WHERE A.SubsidiaryName = ''Singapore''
+
+';
+
+EXEC sp_executesql
+    @SingaporeGateCrashSQL,
+    N'@Result INT OUTPUT',
+    @Result = @SingaporeGateCrashCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      43
+    , 'Asia Suppression Validation'
+    , 'Singapore GateCrash Suppression'
+    , CAST(@SingaporeGateCrashCount AS VARCHAR(100))
+    , CASE
+          WHEN @SingaporeGateCrashCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 44. SINGAPORE SEGMENT SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @SingaporeSegmentCount INT;
+
+DECLARE @SingaporeSegmentSQL NVARCHAR(MAX);
+
+SET @SingaporeSegmentSQL = '
+
+    SELECT
+        @Result = COUNT(MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    WHERE A.SubsidiaryName = ''Singapore''
+
+    AND A.SeniorityName IN
+    (
+          ''VP''
+        , ''CXO''
+        , ''Director''
+    )
+
+    AND
+    (
+        A.EndCustomer_SegmentName IN
+        (
+              ''Upper Majors Commercial''
+            , ''Upper Majors Public Sector''
+            , ''Strategic Commercial''
+            , ''Strategic Public Sector''
+        )
+
+        OR
+
+        A.EndCustomer_SubSegmentName IN
+        (
+            ''SME&C - Corporate Commercial''
+        )
+    )
+
+';
+
+EXEC sp_executesql
+    @SingaporeSegmentSQL,
+    N'@Result INT OUTPUT',
+    @Result = @SingaporeSegmentCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      44
+    , 'Asia Suppression Validation'
+    , 'Singapore Segment Suppression'
+    , CAST(@SingaporeSegmentCount AS VARCHAR(100))
+    , CASE
+          WHEN @SingaporeSegmentCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 45. AUSTRALIA HVI SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @AustraliaHVICount INT;
+
+DECLARE @AustraliaHVISQL NVARCHAR(MAX);
+
+SET @AustraliaHVISQL = '
+
+    SELECT
+        @Result = COUNT(MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    WHERE
+        A.SubsidiaryName = ''Australia''
+
+    AND
+        A.EndCustomer_SegmentName IN
+        (
+            ''High Value Individual''
+        )
+
+';
+
+EXEC sp_executesql
+    @AustraliaHVISQL,
+    N'@Result INT OUTPUT',
+    @Result = @AustraliaHVICount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      45
+    , 'Asia Suppression Validation'
+    , 'Australia HVI Suppression'
+    , CAST(@AustraliaHVICount AS VARCHAR(100))
+    , CASE
+          WHEN @AustraliaHVICount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 46. INDIA SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @IndiaSuppressionCount INT;
+
+DECLARE @IndiaSuppressionSQL NVARCHAR(MAX);
+
+SET @IndiaSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(MPAAIndividualID)
+
+    FROM ' + @FullTableName + '
+
+    WHERE
+    (
+           EmailAddress LIKE ''%@Asia.Xchanging.com%''
+        OR EmailAddress LIKE ''%@cambridge-asia.com%''
+        OR EmailAddress LIKE ''%@microsoft.com%''
+    )
+
+    AND SubsidiaryName = ''India SC''
+
+';
+
+EXEC sp_executesql
+    @IndiaSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @IndiaSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      46
+    , 'Asia Suppression Validation'
+    , 'India Suppression'
+    , CAST(@IndiaSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @IndiaSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 47. KOREA SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @KoreaSuppressionCount INT;
+
+DECLARE @KoreaSuppressionSQL NVARCHAR(MAX);
+
+SET @KoreaSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+        ON A.MPAAIndividualID = IPV.MPAAIndividualID
+
+    INNER JOIN [TENANT_' + @Schema + '].Z_BlacklistEmails B WITH (NOLOCK)
+        ON IPV.EmailAddress = B.EmailAddress
+
+    WHERE A.AreaName = ''Korea''
+
+';
+
+EXEC sp_executesql
+    @KoreaSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @KoreaSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      47
+    , 'Asia Suppression Validation'
+    , 'Korea Suppression'
+    , CAST(@KoreaSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @KoreaSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 48. CHINA SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @ChinaSuppressionCount INT;
+
+DECLARE @ChinaSuppressionSQL NVARCHAR(MAX);
+
+SET @ChinaSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    WHERE
+    (
+        A.STAC_JobTitle = ''Student''
+
+        AND A.UCMP_AUDIENCE = ''Academic Practitioner''
+
+        AND A.SubsidiaryName = ''China''
+    )
+
+    OR
+    (
+        A.UCMP_AUDIENCE IN
+        (
+              ''Business Decision Maker''
+            , ''Technical Decision Maker''
+        )
+
+        AND A.EndCustomer_SubSegmentName IN
+        (
+              ''Upper Majors - Government''
+            , ''Upper Majors - Education''
+        )
+
+        AND A.SubsidiaryName = ''China''
+    )
+
+';
+
+EXEC sp_executesql
+    @ChinaSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @ChinaSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      48
+    , 'Asia Suppression Validation'
+    , 'China Suppression'
+    , CAST(@ChinaSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @ChinaSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 49. GCR SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @GCRSuppressionCount INT;
+
+DECLARE @GCRSuppressionSQL NVARCHAR(MAX);
+
+SET @GCRSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+        ON A.MPAAIndividualID = IPV.MPAAIndividualID
+
+    INNER JOIN TENANT_GCJ.Z_BlacklistEmails B WITH (NOLOCK)
+        ON IPV.EmailAddress = B.EmailAddress
+
+    WHERE A.AreaName = ''Greater China''
+
+';
+
+EXEC sp_executesql
+    @GCRSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @GCRSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      49
+    , 'Asia Suppression Validation'
+    , 'GCR Suppression'
+    , CAST(@GCRSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @GCRSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 50. ASEAN SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @ASEANSuppressionCount INT;
+
+DECLARE @ASEANSuppressionSQL NVARCHAR(MAX);
+
+SET @ASEANSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+        ON A.MPAAIndividualID = IPV.MPAAIndividualID
+
+    INNER JOIN [TENANT_' + @Schema + '].Z_BlacklistEmails B WITH (NOLOCK)
+        ON IPV.EmailAddress = B.EmailAddress
+
+    WHERE A.AreaName = ''ASEAN''
+
+';
+
+EXEC sp_executesql
+    @ASEANSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @ASEANSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      50
+    , 'Asia Suppression Validation'
+    , 'ASEAN Suppression'
+    , CAST(@ASEANSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @ASEANSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
+
+
+---------------------------------------------------------------------
+-- 51. ANZ SUPPRESSION
+---------------------------------------------------------------------
+
+DECLARE @ANZSuppressionCount INT;
+
+DECLARE @ANZSuppressionSQL NVARCHAR(MAX);
+
+SET @ANZSuppressionSQL = '
+
+    SELECT
+        @Result = COUNT(A.MPAAIndividualID)
+
+    FROM ' + @FullTableName + ' A
+
+    INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+        ON A.MPAAIndividualID = IPV.MPAAIndividualID
+
+    INNER JOIN [TENANT_' + @Schema + '].Z_BlacklistEmails B WITH (NOLOCK)
+        ON IPV.EmailAddress = B.EmailAddress
+
+    WHERE A.AreaName = ''ANZ''
+
+';
+
+EXEC sp_executesql
+    @ANZSuppressionSQL,
+    N'@Result INT OUTPUT',
+    @Result = @ANZSuppressionCount OUTPUT;
+
+
+INSERT INTO #ValidationSummary
+VALUES
+(
+      51
+    , 'Asia Suppression Validation'
+    , 'ANZ Suppression'
+    , CAST(@ANZSuppressionCount AS VARCHAR(100))
+    , CASE
+          WHEN @ANZSuppressionCount = 0 THEN 'PASS'
+          ELSE 'FAIL'
+      END
+);
     ---------------------------------------------------------------------
     -- FINAL OUTPUT
     ---------------------------------------------------------------------
