@@ -2361,6 +2361,591 @@ BEGIN
     );
 
 END;
+
+---------------------------------------------------------------------
+-- 52. EHYG TABLE VALIDATION
+---------------------------------------------------------------------
+
+DECLARE @EhygTableName NVARCHAR(500);
+
+SET @EhygTableName =
+        'TENANT_' + @Schema + '.'
+        + @CampaignID + '_Ehyg';
+
+
+IF OBJECT_ID(@EhygTableName) IS NOT NULL
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          52
+        , 'eHyg Validation'
+        , 'eHyg Campaign Table'
+        , @EhygTableName
+        , 'INFO'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          52
+        , 'eHyg Validation'
+        , 'eHyg Campaign Table'
+        , 'Step skipped because eHyg table is not present'
+        , 'SKIP'
+    );
+
+END;
+
+
+---------------------------------------------------------------------
+-- 53. INPUT TABLE COUNT
+---------------------------------------------------------------------
+
+DECLARE @EhygInputTable NVARCHAR(500);
+
+SET @EhygInputTable =
+        'TENANT_' + @Schema + '.'
+        + @CampaignID + '_Input';
+
+
+IF OBJECT_ID(@EhygInputTable) IS NOT NULL
+BEGIN
+
+    DECLARE @InputTableCount INT;
+
+    DECLARE @InputTableCountSQL NVARCHAR(MAX);
+
+    SET @InputTableCountSQL = '
+
+        SELECT
+            @Result = COUNT(*)
+
+        FROM ' + @EhygInputTable + '
+
+    ';
+
+    EXEC sp_executesql
+        @InputTableCountSQL,
+        N'@Result INT OUTPUT',
+        @Result = @InputTableCount OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          53
+        , 'eHyg Validation'
+        , 'Input Table Count'
+        , CAST(@InputTableCount AS VARCHAR(100))
+        , 'INFO'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          53
+        , 'eHyg Validation'
+        , 'Input Table Count'
+        , 'Step skipped because input table is not present'
+        , 'SKIP'
+    );
+
+END;
+
+
+---------------------------------------------------------------------
+-- 54. INPUT TABLE SUBSIDIARIES
+---------------------------------------------------------------------
+
+IF OBJECT_ID(@EhygInputTable) IS NOT NULL
+BEGIN
+
+    DECLARE @InputSubsidiaryResult NVARCHAR(MAX);
+
+    DECLARE @InputSubsidiarySQL NVARCHAR(MAX);
+
+    SET @InputSubsidiarySQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(ISNULL(SubsidiaryName, '''') AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT SubsidiaryName
+            FROM ' + @EhygInputTable + '
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @InputSubsidiarySQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @InputSubsidiaryResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          54
+        , 'eHyg Validation'
+        , 'Input Table Subsidiaries'
+        , ISNULL(@InputSubsidiaryResult,'No Data Found')
+        , 'INFO'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          54
+        , 'eHyg Validation'
+        , 'Input Table Subsidiaries'
+        , 'Step skipped because input table is not present'
+        , 'SKIP'
+    );
+
+END;
+
+
+---------------------------------------------------------------------
+-- 55. EHYG GEO VALIDATION
+---------------------------------------------------------------------
+
+IF OBJECT_ID(@EhygTableName) IS NOT NULL
+BEGIN
+
+    DECLARE @EhygGeoResult NVARCHAR(MAX);
+
+    DECLARE @EhygGeoSQL NVARCHAR(MAX);
+
+    SET @EhygGeoSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(X.AreaName, '''')
+                        + '' - ''
+                        + ISNULL(X.SubsidiaryName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.AreaName
+                , IPV.SubsidiaryName
+
+            FROM ' + @EhygTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @EhygGeoSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @EhygGeoResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          55
+        , 'eHyg Validation'
+        , 'eHyg GEO Values'
+        , ISNULL(@EhygGeoResult,'No Data Found')
+        , 'INFO'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          55
+        , 'eHyg Validation'
+        , 'eHyg GEO Values'
+        , 'Step skipped because eHyg table is not present'
+        , 'SKIP'
+    );
+
+END;
+
+
+---------------------------------------------------------------------
+-- 56. EHYG LANGUAGE VALIDATION
+---------------------------------------------------------------------
+
+IF OBJECT_ID(@EhygTableName) IS NOT NULL
+BEGIN
+
+    DECLARE @EhygLanguageResult NVARCHAR(MAX);
+
+    DECLARE @EhygLanguageSQL NVARCHAR(MAX);
+
+    SET @EhygLanguageSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(ISNULL(X.PreferredLanguage, '''') AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.PreferredLanguage
+
+            FROM ' + @EhygTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @EhygLanguageSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @EhygLanguageResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          56
+        , 'eHyg Validation'
+        , 'eHyg Languages'
+        , ISNULL(@EhygLanguageResult,'No Data Found')
+        , 'INFO'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          56
+        , 'eHyg Validation'
+        , 'eHyg Languages'
+        , 'Step skipped because eHyg table is not present'
+        , 'SKIP'
+    );
+
+END;
+
+
+---------------------------------------------------------------------
+-- 57. EHYG AUDIENCE VALIDATION
+---------------------------------------------------------------------
+
+IF OBJECT_ID(@EhygTableName) IS NOT NULL
+BEGIN
+
+    DECLARE @EhygAudienceResult NVARCHAR(MAX);
+
+    DECLARE @EhygAudienceSQL NVARCHAR(MAX);
+
+    SET @EhygAudienceSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(X.MarketingAudienceCategory, '''')
+                        + '' - ''
+                        + ISNULL(X.MarketingAudience, '''')
+                        + '' - ''
+                        + ISNULL(CAST(X.DeveloperFlag AS VARCHAR(50)), '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.MarketingAudienceCategory
+                , IPV.MarketingAudience
+                , IPV.DeveloperFlag
+
+            FROM ' + @EhygTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @EhygAudienceSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @EhygAudienceResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          57
+        , 'eHyg Validation'
+        , 'eHyg Audience Values'
+        , ISNULL(@EhygAudienceResult,'No Data Found')
+        , 'INFO'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          57
+        , 'eHyg Validation'
+        , 'eHyg Audience Values'
+        , 'Step skipped because eHyg table is not present'
+        , 'SKIP'
+    );
+
+END;
+
+---------------------------------------------------------------------
+-- 58. EHYG SEGMENT VALIDATION
+---------------------------------------------------------------------
+
+IF OBJECT_ID(@EhygTableName) IS NOT NULL
+BEGIN
+
+    DECLARE @EhygSegmentResult NVARCHAR(MAX);
+
+    DECLARE @EhygSegmentSQL NVARCHAR(MAX);
+
+    SET @EhygSegmentSQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(X.SegmentName, '''')
+                        + '' - ''
+                        + ISNULL(X.SubSegmentName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  IPV.SegmentName
+                , IPV.SubSegmentName
+
+            FROM ' + @EhygTableName + ' A
+
+            INNER JOIN UCMP.DimIndividualProfile IPV WITH (NOLOCK)
+                ON IPV.MPAAIndividualID = A.MPAAIndividualID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @EhygSegmentSQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @EhygSegmentResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          58
+        , 'eHyg Validation'
+        , 'eHyg Segment Values'
+        , ISNULL(@EhygSegmentResult,'No Data Found')
+        , 'INFO'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          58
+        , 'eHyg Validation'
+        , 'eHyg Segment Values'
+        , 'Step skipped because eHyg table is not present'
+        , 'SKIP'
+    );
+
+END;
+
+
+---------------------------------------------------------------------
+-- 59. EHYG INDUSTRY VALIDATION
+---------------------------------------------------------------------
+
+IF OBJECT_ID(@EhygTableName) IS NOT NULL
+BEGIN
+
+    DECLARE @EhygIndustryResult NVARCHAR(MAX);
+
+    DECLARE @EhygIndustrySQL NVARCHAR(MAX);
+
+    SET @EhygIndustrySQL = '
+
+        SELECT
+            @Result =
+                STRING_AGG(
+                    CAST(
+                        ISNULL(X.IndustryName, '''')
+                        + '' - ''
+                        + ISNULL(X.VerticalName, '''')
+                    AS NVARCHAR(MAX))
+                , '' | ''
+                )
+
+        FROM
+        (
+            SELECT DISTINCT
+                  OPV.IndustryName
+                , OPV.VerticalName
+
+            FROM ' + @EhygTableName + ' A
+
+            INNER JOIN UCMP.DimOrganizationProfile OPV WITH (NOLOCK)
+                ON OPV.MPAAOrganizationID = A.MPAAOrganizationID
+        ) X
+
+    ';
+
+    EXEC sp_executesql
+        @EhygIndustrySQL,
+        N'@Result NVARCHAR(MAX) OUTPUT',
+        @Result = @EhygIndustryResult OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          59
+        , 'eHyg Validation'
+        , 'eHyg Industry Values'
+        , ISNULL(@EhygIndustryResult,'No Data Found')
+        , 'INFO'
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          59
+        , 'eHyg Validation'
+        , 'eHyg Industry Values'
+        , 'Step skipped because eHyg table is not present'
+        , 'SKIP'
+    );
+
+END;
+
+
+---------------------------------------------------------------------
+-- 60. EHYG UNDELIVERABLE VALIDATION
+---------------------------------------------------------------------
+
+IF OBJECT_ID(@EhygTableName) IS NOT NULL
+BEGIN
+
+    DECLARE @UndeliverableCount INT;
+
+    DECLARE @UndeliverableSQL NVARCHAR(MAX);
+
+    SET @UndeliverableSQL = '
+
+        SELECT
+            @Result = COUNT(DISTINCT X.MPAAIndividualID)
+
+        FROM ' + @EhygTableName + ' X
+
+        WHERE EXISTS
+        (
+            SELECT 1
+            FROM UCMP.ETsuppression WITH (NOLOCK)
+            WHERE MPAAIndividualID = X.MPAAIndividualID
+        )
+
+    ';
+
+    EXEC sp_executesql
+        @UndeliverableSQL,
+        N'@Result INT OUTPUT',
+        @Result = @UndeliverableCount OUTPUT;
+
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          60
+        , 'eHyg Validation'
+        , 'Undeliverable Emails'
+        , CAST(@UndeliverableCount AS VARCHAR(100))
+        , CASE
+              WHEN @UndeliverableCount = 0 THEN 'PASS'
+              ELSE 'FAIL'
+          END
+    );
+
+END
+
+ELSE
+BEGIN
+
+    INSERT INTO #ValidationSummary
+    VALUES
+    (
+          60
+        , 'eHyg Validation'
+        , 'Undeliverable Emails'
+        , 'Step skipped because eHyg table is not present'
+        , 'SKIP'
+    );
+
+END;
     ---------------------------------------------------------------------
     -- FINAL OUTPUT
     ---------------------------------------------------------------------
